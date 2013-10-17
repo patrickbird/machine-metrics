@@ -1,0 +1,15 @@
+Patrick Bird
+Homework 1
+CSE 221
+Fall 2013
+patbird@gmail.com
+
+1)
+
+Hydra
+
+a)  "A protection domain in Hydra is the "local name space" (LNS). An LNS represents the current set of objects and rights to which a process has access, and those objects and rights change when a process moves from one LNS to another." (Homework #1 Description)
+
+b)  HYDRA offers two primitive functions, CALL and RETURN: "[They] allow a procedure to invoke a new procedure or to return to the current procedure's caller."  The caller will CALL to the kernel.  The kernel will then validate the protection requirements.  If successful, the kernel will create a new LNS which overrides the caller's LNS for the entirety of the procedure.
+
+c) Rights are represented by a "check-rights field" in the template, which represent the expected parameters of a procedure.

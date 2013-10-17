@@ -1,0 +1,133 @@
+Patrick Bird
+Homework 0
+CSE 221
+Fall 2013
+patbird@gmail.com
+
+1) 1) e) Switch from user mode to kernel mode – This action must be a privileged instruction. Otherwise user applications could spoof the system by pretending that it was the kernel and have access to privileged hardware and system calls which would be detrimental to the system.
+
+2.1)
+
+    class CountdownEvent
+    {
+        private int count;
+
+        private object mutex = new object();
+
+        public CountdownEvent(int count)
+        {
+            this.count = count;
+        }
+
+        public void Increment()
+        {
+            if (this.count <= 0)
+            {
+                return;
+            }
+
+            lock (this.mutex)
+            {
+                this.count++;
+            }
+        }
+
+        public void Decrement()
+        {
+            if (this.count <= 0)
+            {
+                return;
+            }
+
+            lock (this.mutex)
+            {
+                this.count--;
+            }
+        }
+
+        public void Wait()
+        {
+            while (this.count > 0)
+            {
+                Thread.Sleep(1);
+            }
+        }
+    }
+
+2.2)
+
+A CountdownEvent focuses on thread synchronization, while a semaphore focuses on resource synchronization.  
+
+To elaborate a little more, a CountdownEvent would provide a mechanism for different threads to synchronize with each other.  A semaphore on the other hand would provide a mechanism for the system to synchronize a set of resources for a given number of threads.
+
+2.3)
+
+    public class Barrier 
+    {
+        private CountdownEvent countdownEvent;
+
+        public Barrier (int count)
+        {
+            this.countdownEvent = new CountdownEvent(count);
+        }
+        
+        public void Done()
+        {
+            this.countdownEvent.Decrement();
+            this.countdownEvent.Wait();
+        }
+    }
+
+3)
+
+Assuming a hardware-managed TLB, a miss in the TLB would cause the MMU to look for the page in the page table.  Assuming that the page was swapped out to disk, a page fault would occur and trap to the OS.
+
+The OS would first have to find a page in physical memory to copy the page from disk.  If there is a free page in physical memory, the OS would copy the page from disk into memory and update the page table and TLB with the new page.  If there is not an empty page in memory, it would have to determine which page to replace.  Depending on whether the page is dirty or not would determine how expensive the operation is.  If the page to be swapped out is clean, the page table would be updated with the new page and the page would be copied into memory.  If the page is dirty, the OS would have to copy the page back out to disk first which is always much more expensive.
+
+After copying the page from disk into memory, the OS would then update the page table and the TLB.  Any bits that would signify the contents of the page would have to be set - it would update the present bit to present, any access bit(s) to read access, the dirty bit would be clean, and the referenced bit set to true.  Finally, the value of the address would be returned after the virtual address was mapped to its physical one and the instruction that caused the page fault in the first place would be rerun.
+
+4.1)
+
+a) First, Unix will read the i-node for "/" which is some known location - for example, i-node 2.
+
+b) Next, Unix will read the block for the directory for "/" and get the i-node number for "/a".
+
+c) Next, Unix will read the i-node for "/a" and read the block for directory "/a" and get the i-node number for "/a/b".
+
+d) Next, Unix will read the i-node for "/a/b" and read the block for directory "/a/b" and get the i-node number for "/a/b/c".
+
+e) Finally, Unix will read the i-node for "/a/b/c" and read the block for file "/a/b/c" and then read the first byte of the file.
+
+In all, Unix will perform eight disk reads.  There will be four for the i-nodes and four for the data blocks (files & directories).
+
+4.2)
+
+Assuming that unix caches the i-nodes of previous paths, Unix would have the location of the i-node of "/a/b" in its cache from the previous resolution.  Unix would need to read this i-node from disk and then read in the directory of "/a/b" and get the i-node number for "/a/b/x".  It would then, read the i-node of "/a/b/x" and then finally read the data block for "/a/b/x".  In all, there would be four disk reads - two i-node reads and two data blocks reads.
+
+4.3)
+
+The solution for this problem is a combination of the answers from 4.1 and 4.2.  The first file in "/a/b/*" would be the answer for 4.1, which is 8, since there is nothing cached.  For each subsequent file of (n-1) files, the number of disk reads would be the answer from 4.2 => 4(n - 1) reads.
+
+Thus, the total answer is:
+
+                        8 + 4(n - 1)
+
+                        8 + 4n - 4
+
+                        "grep /a/b/*" would take 4n + 4 or 4(n + 1) disk reads.
+
+4.4)
+
+Since there is a file buffer cache, the directory "/a/b" would be in the cache, which would eliminate 2 reads (1 for the inode and 1 for the data) for each of the (n - 1) reads from the namei cached factor from 4.3.  So, the equation would be:
+
+                        8 + (4(n - 1) - 2*(n - 1))
+
+                        8 + (2(n - 1))
+
+                        8 + 2n - 2
+
+                        2n + 6 disk reads
+
+4.5)
+
+If the access rights of the entry change and the user does not have access to that path anymore, the entry should be invalidated.

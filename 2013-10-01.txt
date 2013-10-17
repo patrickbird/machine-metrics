@@ -1,0 +1,13 @@
+Dijkstra Notes
+---------------------
+Q: Dijkstra explicitly states their goals for the THE operating system. How do these goals compare to, say, Microsoft's goals for the Windows operating system? Why do we no longer build operating systems with the same goals as THE?
+
+A: The THE system was a batch system and the goal was related to managing the jobs for the university.  These jobs would take long periods of time.  Operating systems now are concerned with problems of multiaccess users.  Also, applications are interactive and responsive now.  Windows is more concerned about how the OS can manage the hardware and juggle applications so that all can be responsive as the hardware/OS can allow.
+
+P.B. Hansen
+---------------------
+Q: How does synchronization in the RC 4000 system compare with synchronization in the THE system?
+
+A: The system is more concerned with interprocess communication.  So it's a little more sophisticated in that way.  There is also a hierarchy of processes in the RC4000 machine where there is a concept of a parent-child relationship.  And the children of a process share its parent's memory footprint.  However, scheduling is still done in a round-robin fashion.
+
+However, there is no secondary storage in the RC 4000 system.

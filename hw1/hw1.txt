@@ -1,0 +1,110 @@
+Patrick Bird
+Homework 1
+CSE 221
+Fall 2013
+patbird@gmail.com
+
+1)
+
+Hydra
+------
+
+a)  "A protection domain in Hydra is the "local name space" (LNS). An LNS represents the current set of objects and rights to which a process has access, and those objects and rights change when a process moves from one LNS to another." (Homework #1 Description)
+
+b)  HYDRA offers two primitive functions, CALL and RETURN: "[They] allow a procedure to invoke a new procedure or to return to the current procedure's caller."  The caller will CALL to the kernel.  The kernel will then validate the protection requirements.  If successful, the kernel will create a new LNS which overrides the caller's LNS for the entirety of the procedure.
+
+c)  Rights are represented by two mutually exclusive sets of rights that are listed for any given capability - kernel and auxilary rights.  In each set, a right represents the ability for a capability to be a parameter for a procedure.  The kernel defines the first set of rights, while the creator defines the latter set.
+
+d)  Templates are used by the capability part of a procedure.  They define the capabilities that will be passed as actual parameters.  Rights are amplified by a "check-rights field" in a template.
+
+e)  The "check-rights field" of a procedure's template must match the rights from the parameter capability.  If they match, a capability is constructed in the new LNS by the OS.  Otherwise, the CALL is not permitted by the OS.
+
+Multics
+-------
+
+a)  A protection domain in Multics is the segment and its associated access control list.  The combination of a process' principal identifier and an ACL determines which objects a process has access to.
+
+b)  The mechanism for crossing protection domains is the ring protection mechanism.  If a process calls into a protected subsystem (the supervisor is an example), the extended descriptor validates that the process has access both from a mode control perspective and a subsystem perspective.
+
+c)  Rights are represented in hardware by a descriptor.  Each descriptor has read, write, and execute bits to represent the actions that can be performed.  The descriptor also defines entry points for protected subsystems and a subsystem hierarchy for rights validation called "rings of protection."
+
+d)  Rights are amplified by the "rings of protection" mechanism, specifically the "protected subsystem" field in the descriptor.  The "protected subsystem" field of a descriptor can only access other descriptors with an equal or greater number.
+
+e)  If the process that attempts to access a protected subsystem has a subsystem number that is less than the subsystem and the process is on the ACL of the subsystem gate, the OS grants access.  Otherwise, it doesn't.
+
+Unix
+----
+
+a)  The protection domain that Unix supports is one in which every object has protection mode bits for the object's owner and everybody else.
+
+b)  The mechanism for crossing protection domains is the set-user-id feature.  This mechanism is implemented in the seventh bit of the protection mode bits.  If this bit is on, the system changes the user identification of the current user to that of the creator of the file.
+
+c)  Rights are represented by access control bits - read, write, execute - for any given file.  There are two sets - one for the current user and the other set for everybody else.
+
+d)  To amplify rights, the set-user-ID bit must be set on the process.  When set, the current user's unique ID is changed to the creator of the file.  When this happens, the process has access to files that the current user might not have had otherwise.
+
+e)  For the OS to allow the current user's ID to be changed, the set-user-ID bit must be set.
+
+Pilot
+-----
+
+a)  The program module is the protection mechanism in Pilot.  The program modules "specify the algorithms and the actual data structures comprising the implementation of the system."
+
+b)  The mechanism for crossing the program module is the interface.  An interface has a typed set of parameters that a client imports.  The interface defines a "group of related types, operations and error signals."  The interface defines how one program module binds to another one.
+
+c)  Rights are represented by the operations and types defined in the interface.  The interface defines what a module can or cannot do.  For instance, the File.Create operation is defined in the File interface.  This operation allows clients to create a file.
+
+d)  As discussed in "Experience with Processes and Monitors in Mesa", the authors describe that modules have public, private, and external access modifiers.  These access modifiers allow clients to call a public interface operation in which the interface can call a private interface on behalf of the caller.
+
+e)  The OS allows clients to call operations on interfaces insofar as the access modifiers allow them.  If an operation is private, the OS will disallow clients from calling the operation.  Only the interface may do that.  
+
+
+2.1)  Traditional operating systems like Unix must support debugging because bugs appear in too many numerous places in both application and operating system software.  By not providing a debugger, the developer is considerably shorthanded and will not be effective in understanding and fixing software bugs and issues.
+
+For example, the Pilot system exceptions will be caught in application exception handlers.  If none are provided, the Mesa debugger is started.  The philosophy here is that the application should be aware of all its potential issues.  And if not, the debugger must be started to understand the underlying issue.
+
+2.2)  Two operations that must be supported by the OS for debugging are examining memory locations and using breakpoints in executing code.  TENEX utilized both of these features in their DDT debugger.
+
+2.3)  Debuggers cannot utilize the OS' mechanisms for process communication and coordination because these mechanisms assume that the two processes have their mutually exclusive and independent address spaces.  The debugger, on the other hand, needs to access the address space of the process it wishes to debug.  Thus, the OS has to provide some mechanism for a debugger to reference the target process' address space.
+
+2.4)  Programming languages like Java, Perl, and C# do not need operating support.  These languages provide debugging environments that run the code in them.  A client often will connect to a port on this machine and issue commands and retrieve information.  Anyway, this debugging environment is not at the page table/virtual memory layer, but at the application layer.  Thus, these languages don't need OS support.
+
+2.5)  Debugging the kernel of an operating system is more difficult than a user-level process mainly from the standpoint of the circular dependencies that are involved.  From a layer perspective, a user-level process runs on top of the OS so the OS can provision a debugger for this process and there are not any circular dependencies because the debugger will be somewhere between the OS and the user-level process.
+
+Debugging a kernel of an operating system gets into circular dependencies.  For instance, the debugger might want to utilize a memory protection or buffer mechanisms that are provisioned by the OS.  This will be a problem because the debugger has to be able to debug these mechanisms as well.  Not to mention, the kernel debugger must run with special privlidges to access kernel address space.
+
+One potential option for running a kernel debugger is in a protected address space with its own mechanisms so it is isolated from the kernel's mechanisms.  The kernel would have to expose some subset of debugging commands that the kernel debugger could utilize.  The key is that the kernel must expose itself to the debugger.
+
+3)  One of the main reasons one would use specialized hardware is to optimize the system.  Multics used a hardware-based descriptor for segment addressing in main memory.  In Saltzer's article, he mentions two advantages of using a hardware-checked call.  For one, there is no overhead or performance penalty for protected or unprotected subsystems.  And two, it gives assurance to the programmer that if he/she writes a protected subsystem, that it will receive the same type of protection as the supervisor does.  Since the protection for virtual memory is done in hardware, no elaborate software mechanism needs to be devised.  It is much simpler and efficient.
+
+Unfortunately, having specialized hardware is not all positive.  One major drawback is that it creates a niche platform and the software less portable.  For others to install Multics on their machine, they must have this specialized memory.  If one doesn't have this memory, a major piece of the OS (memory protection) will need to be reworked, which is quite costly.
+
+Today, at least in the consumer space, specialized hardware exists mainly in the portable device area.  Most PCs and laptops use standard OEM parts so they can interface with motherboards and buses as easily as possible.  It wouldn't be wise to build a hard drive that didn't have an eSATA port on it since that is a standard today.
+
+As mentioned before, one could argue that the portable device area uses specialized hardware.  For instance, iOS is tied closely with the hardware of an iPhone.  It takes a good bit of work for one to port Android to an iPhone.  Not to mention that this case is more of a hobbyist use case.  The typical consumer has no interest in installing other OS's on a smartphone, but will just use the one that it comes with.
+
+4)
+
+As in most cases, the answer to the question of whether "write once, read many" has a viable use case: it depends.  Let's start from the narrowest use case and expand outward.
+
+WORM does not seem feasible for the typical home user.  For one, the use case does not seem to be there.  A typical home user wants a flexible file system.  He/she wants to be able to add and remove files at will.  One use case that is possible is the ability to archive media such as pictures, music, and video.  And many users already use WORM devices such as CDs and DVDs.  However, these media devices differ from the one on Plan 9 because of their inaccessability.  Plan 9's WORM device was an integral part of the system, while CDs and DVDs are independent of the system and removable.  Not to mention, that these WORM devices are disappearing as secondary storage continues to drop in price.  Having a secondary hard drive that is a WORM device is feasible, but not practical for home users.
+
+Expanding next to small and medium size organizations, WORM devices could definitely be used for certain applications.  For instance, a medium sized bank might want to install a WORM device to track financial transactions for auditing purposes.  A health clinic might want to track information for clinical trials for HIPAA compliance.  In both of these cases, the client organization would want assurance that all data could not be tampered with.  Not to mention, the auditing agencies involved would also want this assurance for their work.  Obviously, the WORM device would not be used as a warehouse for all data.  But for certain data, especially data that would be used for auditing, tracking, and historical purposes, WORM could especially be suitable and feasible.
+
+For large internet companies and enterprise cloud companies, WORM devices could definitely benefit some of their use cases.  For most of their storage, WORM wouldn't make sense - servers, utilities, and software need to be updated.  And for most user data, WORM probably would not make sense unless historical traceability were a very important issue.
+
+One use case that could be beneficial for these large companies is if their service involved catering to other organizations that needed this traceability.  For instance, Amazon AWS' S3 cloud object storage caters to certain regulatory requirements such as PCI and HIPAA.  In these cases, Amazon might employ WORM storage for traceability for their clients.
+
+5)
+
+One can understand why the operating system of today caters itself to multi-user, timesharing systems by observing the typical home and business user.
+
+Multi-user for the home:  The typical home user likes to customize their environments and their computers are no different.  Users want to customize their desktop.  Users also want their operating system to serve them their most recent documents and not their parents or their neighbors.  Plus, users might want to keep their data private from others and the OS usually provides a good mechanism for doing so.  For these reasons, an OS leans towards a multi-user environment.
+
+For timesharing, the typical home user wants to run several user applications at the same time.  For instance, they might want to write a document in a word processor, listen to music from an mp3 player, browse the internet, and read email all at the same time.  The OS must support that.  Otherwise, the user will be frustrated and look for alternatives.
+
+Another reason is that most of the commercially viable operating systems need to be able to be installed in the workplace.  And an OS in the workplace needs to be able to handle different users.  For instance, often times there are different users with different roles that need to use the computer - i.e. an administrator and a normal user.  Also, especially for the technology industry, many users will typically login to a machine at the same time.  There might be a development server that multiple users login to develop and test their code.
+
+And depending on one's role at a company, the need for timesharing is usually much greater at the workplace.  For instance, the computer I have at work must be powerful to run several development environments, database servers, web servers, virtual machines, browsers, debugging utilities, and communciation software all at the same time.  Timesharing is essential. 
+
+By evaluating both the typical home and office user, an OS that's built for a PC must be designed for multi-user and timesharing.  Otherwise, it will be tossed to the side.

@@ -1,0 +1,91 @@
+The Structure of the "THE"-Multiprogramming System
+
+Edsger W. Dijkstra
+
+One-line summary: By strictly layering the system into a hierarchy, system
+design, implementation, and debugging are all simplified - software
+engineering applied to systems engineering.
+
+Overview/Main Points
+
+   * Pearls of Dijkstra Wisdom:
+        o Love your machine, love your project, love your co-workers.
+        o Half-time implies progress at an eighth of the speed.
+        o Systems design is really hard (but not rocket science).
+
+   * Tools of the times:
+        o EL X8 machine, 32K 2.3 uS core memory, 512K, 40ms drum disk
+        o MULTICS was under development (THE 1967, Multics 1965)
+
+   * THE system hierarchy:
+       1. Level 0 - Processor allocation:
+             + Multiplexing of CPU among society of sequential processes
+             + Observation that processes only care about correctness of
+               progression of states, and not the rate of progression
+               (except for real-time system)
+             + Mutexes for "harmonious cooperation"
+       2. Level 1 - Segment controller:
+             + There are "core pages" (in core memory) and "drum pages" (on
+               the drum disk).
+             + The abstract memory unit presented to upper levels in the
+               hierarchy is called the "segment" - many more segments than
+               core pages exist, segments fit inside a core/drum page.
+             + A segment controller maps segments into core pages, and does
+               the paging between core and drum pages.
+             + Observation that it doesn't matter if programs' code pages
+               are contiguous on drum, or even which drum page is used to
+               back a core page.
+       3. Level 2 - Message interpreter:
+             + Routes console input/output to and from the correct
+               processes. Mutual synchronization used to mutex the real
+               console.
+             + Above level 2, every process thinks it has its own private
+               console, its own CPU, and doesn't care about physical memory
+               since it deals with segments.
+       4. Level 3 - Communication units:
+             + Buffering of input streams, unbuffering of output streams (to
+               I/O devices, peripherals, etc.)
+       5. Level 4 - User programs
+       6. Level 5 - Operator (?)
+
+   * Debugging as part of the design process:
+        o Each level of hierarchy tested individually, starting with level 0
+          and working way up
+        o Simplicity of each individual levels made exhaustive testing of
+          all possible system states possible. Each level's states are
+          isolated - if didn't do as hierarchy, number of states would
+          explode as the product of each components' states, rather than as
+          addition of individual levels' states. (I don't believe it -
+          interaction between levels will happen.)
+        o Complex reasoning about processes' mutual synchronization was
+          required.
+
+   * Mutex primitives:
+        o P,V sempahore operations
+        o If a semaphore value is nonpositive its absolute value equals the
+          number of processes booked on its waiting list.
+        o The P-operation represents the potential delay, the V-operation
+          represents removal of a barrier.
+        o Private semaphores - way for a process to force itself to block,
+          and rely on external process to determine that the process should
+          go ahead an proceed at a later date. Essentially condition
+          variables.
+        o Proving the Harmonious Cooperation - processes generate finite
+          number of tasks (for lower-level processes), all processes return
+          to their "homing position" eventually, but only if there are no
+          unaccepted tasks outstanding. (Requires proving no deadlock.
+          Hard.)
+
+Relevance
+
+Structured system design. Rigorous enforcement of layering, with all of the
+benefits.
+
+Flaws
+
+   * Performance?
+   * Proofs of correctness are more hand-waving than proofs.
+   * Performance?
+   * Is a strict hierarchy always going to be found? Why can't there be peer
+     processes/components?
+   * Performance?
