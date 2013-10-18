@@ -11,13 +11,13 @@ Hydra
 
 a)  "A protection domain in Hydra is the "local name space" (LNS). An LNS represents the current set of objects and rights to which a process has access, and those objects and rights change when a process moves from one LNS to another." (Homework #1 Description)
 
-b)  HYDRA offers two primitive functions, CALL and RETURN: "[They] allow a procedure to invoke a new procedure or to return to the current procedure's caller."  The caller will CALL to the kernel.  The kernel will then validate the protection requirements.  If successful, the kernel will create a new LNS which overrides the caller's LNS for the entirety of the procedure.
+b)  HYDRA offers two primitive functions, CALL and RETURN: "[They] allow a procedure to invoke a new procedure or to return to the current procedure's caller."  When a procedure makes a CALL, a new LNS is created for the entirety of the procedure.  When finished, it returns to the caller's previous LNS.
 
-c)  Rights are represented by two mutually exclusive sets of rights that are listed for any given capability - kernel and auxilary rights.  In each set, a right represents the ability for a capability to be a parameter for a procedure.  The kernel defines the first set of rights, while the creator defines the latter set.
+c)  Rights are represented by the template which "characterize the actual parameters expected by the procedure."  Thus, there is a derivation of rights that happens between the callee's template and the caller's supplied parameters.  Within a capability, two mutually exclusive sets of rights are listed - kernel and auxilary rights.  In each set, a right represents the ability for a capability to be a parameter for a procedure.  The kernel defines the first set of rights, while the creator of the type defines the latter set.
 
-d)  Templates are used by the capability part of a procedure.  They define the capabilities that will be passed as actual parameters.  Rights are amplified by a "check-rights field" in a template.
+d)  When a caller CALLs, its rights must be adequate to construct a capability in the new LNS.  To determine if the rights are adequate, the template's rights are merged with the caller's rights.  The "check-rights field" of a procedure's template ensures rights matching.  The capability must include the rights defined by the "check-rights field" of the template.  If so, a new LNS is created with a new capability which references the caller's object with the rights of the template.  This allows rights amplifcation.
 
-e)  The "check-rights field" of a procedure's template must match the rights from the parameter capability.  If they match, a capability is constructed in the new LNS by the OS.  Otherwise, the CALL is not permitted by the OS.
+e)  The OS detemines a successful CALL by checking both the types of parameters and the rights.  If there is a type mismatch, the CALL is not permitted.  Next, the rights checking is performed as mentioned before with the "check-rights field".  The capability's rights must be at least the rights listed in the "check-rights field" of the template.  If it is, the CALL is permitted.  Otherwise, it is not.
 
 Multics
 -------
