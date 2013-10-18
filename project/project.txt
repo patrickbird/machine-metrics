@@ -1,0 +1,26 @@
+The goal of this paper is to characterize a cluster compute node whose main purprose is to provide cloud infrastructure to companies of various sizes.  Since cloud computing is a somewhat new, but growing field, a characterization of the system would be interesting.
+
+The author of this paper performed all experiments that are listed herein.  He chose the C language to implement all code.  This decision was driven by the desire to get as close to the machine code itself without it being machine code.  Not to mention, the Linux OS provides many tools and libraries that will make programming in C not as cumbersome as some other languages.
+
+All C code was compiled with the GCC toolchain.
+
+The server chosen is one cluster computer node in a group of five.  This node has 24 64-bit Intel Xeon with a cycle time of 2.0 GHz.  There are three levels of cache for each processor.  There is 32 KB  of L1 cache, 256 KB of L2 cache, and 15360 KB of L3 cache.
+
+The system has 128 GB of RAM with a potential speed of 1600 MHz.  However, the configurable clock speed is set to 1333 MHz.
+
+The network card is 1 Gbit, full duplex.
+
+The OS is 64-bit CentOS v6.4.
+
+
+
+Operations
+----------
+
+To begin, the author needs to measure the overhead in each measurement.  This measurement is critical for knowing the built-in cost of each measurement.  This value will help to know more accurately measure the different times.
+
+The measurement overhead will vary greatly depending on how the measurement is taken.  Obviously, a set of assembly instructions will be a lot more easier to predict than a higher level class mechanism in Java.  As mentioned above, the preferred language is C so the author can get as close to the hardware without writing the whole thing in assembly.
+
+Since this machine is a multi-core, multi-processor machine, I wanted to insure that the measurement program would only run on one processor and one processor only.  Since the OS will try to optimize its scheduling, it will most likely schedule my program to different processors as I run it.  And since the measurements that I will be taking are so fine grained, I wanted to limit the variables in each measurement.  The first processor seemed as good as any, so I chose processor 0 to run all my measurements.
+
+
