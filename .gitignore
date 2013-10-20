@@ -2,3 +2,5 @@
 .DS_STORE
 *.docx
 *.out
+*.o
+*.s
