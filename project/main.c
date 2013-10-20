@@ -126,18 +126,31 @@ static int GetSystemOverhead(void)
     return (double)(rdtsc2 - rdtsc1);    
 }
 
+static int GetLoopOverhead(void)
+{
+    int i = 0;
+    uint64_t rdtsc[2];
+
+    for (i = 0; i < 2; i++)
+    {
+        rdtsc[i] = GetRdtscValue();
+    }
+
+    return (double)(rdtsc[1] - rdtsc[0]);
+}
+
 static void InitializeMetrics(int sampleCount)
 {
     int i;
 
     for (i = 0; i < MEASUREMENT_COUNT; i++)
     {
-        _metrics->Max = INT_MIN;
-        _metrics->Min = INT_MAX;
-        _metrics->Sum = 0;
-        _metrics->SampleCount = sampleCount;
-        _metrics->Samples = calloc(_metrics[i].SampleCount, sizeof(double));
-        _metrics->Name = MetricNames[i];
+        _metrics[i].Max = INT_MIN;
+        _metrics[i].Min = INT_MAX;
+        _metrics[i].Sum = 0;
+        _metrics[i].SampleCount = sampleCount;
+        _metrics[i].Samples = calloc(_metrics[i].SampleCount, sizeof(double));
+        _metrics[i].Name = MetricNames[i];
     }
 
     _metrics[SYSTEM_OVERHEAD].Measure = GetSystemOverhead;
@@ -149,7 +162,7 @@ static void FinalizeMetrics(void)
 
     for (i = 0; i < MEASUREMENT_COUNT; i++)
     {
-        free(_metrics->Samples);
+        free(_metrics[i].Samples);
     }
 }
 
@@ -181,10 +194,10 @@ int main(int argc, char * argv[])
     int arguments[1];
     enum MEASUREMENT i = 0;
 
-    Initialize(&SetProcessorAffinity, NULL, "Processor Affinity");
+    //Initialize(&SetProcessorAffinity, NULL, "Processor Affinity");
     
     arguments[0] = PRIO_MIN;
-    Initialize(&SetPriority, arguments, "Priority");
+    //Initialize(&SetPriority, arguments, "Priority");
 
     printf("Argument %s\n", argv[1]);
     InitializeMetrics((argc <= 1) ? SAMPLE_COUNT : atoi(argv[1]));
