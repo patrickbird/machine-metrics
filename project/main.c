@@ -74,6 +74,7 @@ int main()
     uint64_t rdtsc1, rdtsc2;
     int arguments[1];
     int returnValue;
+    int i = 0;
 
 	puts("Hello World.");
 
@@ -85,12 +86,15 @@ int main()
 	time = get_time();
     time2 = get_time();
     
+    for (i = 0; i < 50; i++)
+    {
     rdtsc1 = GetRdtscValue();
     rdtsc2 = GetRdtscValue();
 
 	printf("The time is %ld\n", rdtsc1);
     printf("The time is %ld\n", rdtsc2); 
     printf("The diff is %ld\n", rdtsc2 - rdtsc1);
+    }
 
     printf("The highest nice value is: %d\n", PRIO_MAX);
     printf("The lowest nice value is:  %d\n", PRIO_MIN);
