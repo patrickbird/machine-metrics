@@ -4,15 +4,15 @@ The author of this paper performed all experiments that are listed herein.  He c
 
 All C code was compiled with the GCC toolchain.
 
-The server chosen is one cluster computer node in a group of five.  This node has 24 64-bit Intel Xeon with a cycle time of 2.0 GHz.  There are three levels of cache for each processor.  There is 32 KB  of L1 cache, 256 KB of L2 cache, and 15360 KB of L3 cache.
+The server chosen is one cluster computer node in a group of five.  This node has 24 64-bit Intel Xeon with a cycle time of 2000.053 MHz.  There are three levels of cache for each processor.  There is 32 KB  of L1 cache, 256 KB of L2 cache, and 15360 KB of L3 cache.
 
-The system has 128 GB of RAM with a potential speed of 1600 MHz.  However, the configurable clock speed is set to 1333 MHz.
+The system has 128 GB of RAM with a potential speed of 1600 MHz.  However, the configurable clock speed is set to 1333 MHz.  The system is setup so that the processor can utilize four memory channels with the RAM.  This setup allows for greater parallelism with memory reads and writes.
 
 The network card is 1 Gbit, full duplex.
 
 The OS is 64-bit CentOS v6.4.
 
-
+3)
 
 Operations
 ----------
@@ -21,6 +21,27 @@ To begin, the author needs to measure the overhead in each measurement.  This me
 
 The measurement overhead will vary greatly depending on how the measurement is taken.  Obviously, a set of assembly instructions will be a lot more easier to predict than a higher level class mechanism in Java.  As mentioned above, the preferred language is C so the author can get as close to the hardware without writing the whole thing in assembly.
 
-Since this machine is a multi-core, multi-processor machine, I wanted to insure that the measurement program would only run on one processor and one processor only.  Since the OS will try to optimize its scheduling, it will most likely schedule my program to different processors as I run it.  And since the measurements that I will be taking are so fine grained, I wanted to limit the variables in each measurement.  The first processor seemed as good as any, so I chose processor 0 to run all my measurements.  Thankfully, GNU/Linux provides a convienent interface for setting processor affinity with the macro CPU_SET.  
+Since this machine is a multi-core, multi-processor machine, I wanted to insure that the measurement program would only run on one processor and one processor only.  Since the OS will try to optimize its scheduling, it will most likely schedule my program to different processors as I run it.  And since the measurements that I will be taking are so fine grained, I wanted to limit the variables in each measurement.  The first processor seemed as good as any, so I chose processor 0 to run all my measurements.  Thankfully, GNU/Linux provides a convienent interface for setting processor affinity with the macro CPU_SET.
+
+We went back and forth between isolating the process to one processor or just not doing anything at all.  The question came down to: do we want the typical scenerio or do we want to isolate as many variables as we can to get the most accurate measurement.  I chose the latter.  Our reasoning was that we should try to isolate as many variables at first and then expand on that.  We can always measure the speed isolated to one processor and then remove that condition if we wanted to see the overhead between processors.  Or we could measure the overhead between different process priorities.
 
 The next step to take was to ensure a high priority of the program.  Having the program run without being interrupted or preempted is a value for accurate measurements.  If the program were scheduled at normal priority and during a measurement a higher priority process preempted it, the measurements would not be as accurate.
+
+The next step is to to convert clock cycles to actual real time.  Since we have the information of the system, a simple caclulation will give us the information.  We simply divide the clock cycles by the speed of our computer and multiply by the necessary factor.  This sytem is 2000.053 MHz.  The following equation will give us the actual time of the operation:
+
+time in usec = cycles / 2000.053 cycles * 1 usec
+
+
+Now that we have a mechanisms to set processor affinity, process priority, and to retrive an answer of real time, we are ready to estimate our overhead in measuring time.
+
+As far as hardware overhead for measuring time, there is not much hardware overhead.  Since this program is rather small, my guess is that a good portion of the program will be in cache when accessed.  Thus, my initial estimate will take that into account. The hardware involved is the reading the instructions from cache and into the CPU, executing those instructions, and returning that result into a register.  So there are essentially three hardware operations at this stage: cache read, CPU execution, and CPU register storage.  This of course accounts for no OS overhead.
+
+Since this operation is rather fast, a hardware estimate includes an estimation on how many instructions there will be.  Thus, some of the code will be evaluated for hardware estimation.  The procedure itself, GetRTDSC(), is rather small and is a C inline function which cuts down on pushing and popping variables onto the stack.  The function defines two variables - the lower and uppper 32-bit values for the clock.  It then reads the clock and returns a 64-bit number by combining the two variables together.  Compliling the program with the -S option to generate the assembly file, there are eleven assembly instructions.  Since the L1 cache is somewhat generous - 32 KB for just instructions - I'm estimating that the entire process is in L1 cache when the clock code executes based on spatial proximity.  Estimating that it will take an extra clock cyle to return a value to a register, my estimate for reading the clock is:
+
+12 cycles
+
+Since the reading of RDTSC is not a privleged call, there is not any overhead in regards to the operating system.  Obviously, the operating system could preempt this process, which would delay the time.  However, averaging many timings will minimize these outliers.
+
+
+
+
