@@ -17,6 +17,14 @@ enum MEASUREMENT
 {
     RDTSCP = 0,
     LOOP,
+    PROCEDURE_0,
+    PROCEDURE_1,
+    PROCEDURE_2,
+    PROCEDURE_3,
+    PROCEDURE_4,
+    PROCEDURE_5,
+    PROCEDURE_6,
+    PROCEDURE_7,
     MEASUREMENT_COUNT
 };
 
@@ -32,13 +40,22 @@ static struct METRIC
     double Sum;
     double * Samples;
     const char * Name;
-    int (* Measure)();
+    int (* Measure)(int *);
+    int * Arguments;
 } _metrics[MEASUREMENT_COUNT];
 
 static const char * MetricNames[MEASUREMENT_COUNT] =
 {
     "RDTSCP",
-    "LOOP"
+    "LOOP",
+    "Procedure (Zero Arguments)",
+    "Procedure (One Argument)",
+    "Procedure (Two Arguments)",
+    "Procedure (Three Arguments)",
+    "Procedure (Four Arguments)",
+    "Procedure (Five Arguments)",
+    "Procedure (Six Arguments)",
+    "Procedure (Seven Arguments)"
 };
 
 static int SetProcessorAffinity(int * arguments)
@@ -121,7 +138,7 @@ static inline uint64_t GetUint64Value(unsigned int low, unsigned int high)
     return (uint64_t)low | ((uint64_t)high << 32);
 }
 
-static int MeasureRdtscp(void)
+static int MeasureRdtscp(int * arguments)
 {
     unsigned int rdtsc1Low, rdtsc1High;
     unsigned int rdtsc2Low, rdtsc2High;
@@ -132,7 +149,7 @@ static int MeasureRdtscp(void)
     return (double)(GetUint64Value(rdtsc2Low, rdtsc2High) - GetUint64Value(rdtsc1Low, rdtsc1High));
 }
 
-static int MeasureLoop(void)
+static int MeasureLoop(int * arguments)
 {
     int i = 0;
     int sum = 0;
@@ -151,50 +168,128 @@ static int MeasureLoop(void)
 
     return ((double)sum / 99.0);
 }
-
-static int * MeasureZeroArguments(void)
+static uint64_t MeasureSevenArguments(int one, int two, int three, int four, int five, int six, int seven)
 {
     unsigned int low, high;
 
     GetRdtscpValue(&low, &high);
-    MeasureOneArgument(low);
+
+    return GetUint64Value(low, high);
 }
 
-static int * MeasureOneArgument(int one)
+static uint64_t MeasureSixArguments(int one, int two, int three, int four, int five, int six)
 {
     unsigned int low, high;
 
     GetRdtscpValue(&low, &high);
+
+    return GetUint64Value(low, high);
 }
 
-static int * MeasureTwoArguments(int one, int two)
+static uint64_t MeasureFiveArguments(int one, int two, int three, int four, int five)
 {
+    unsigned int low, high;
+
+    GetRdtscpValue(&low, &high);
+
+    return GetUint64Value(low, high);
 }
 
-static int * MeasureThreeArguments(int one, int two, int three)
+static uint64_t MeasureFourArguments(int one, int two, int three, int four)
 {
+    unsigned int low, high;
+
+    GetRdtscpValue(&low, &high);
+
+    return GetUint64Value(low, high);
 }
 
-static int * MeasureFourArguments(int one, int two, int three, int four)
+static uint64_t MeasureThreeArguments(int one, int two, int three)
 {
+    unsigned int low, high;
+
+    GetRdtscpValue(&low, &high);
+
+    return GetUint64Value(low, high);
 }
 
-static int * MeasureFiveArguments(int one, int two, int three, int four, int five)
+static uint64_t MeasureTwoArguments(int one, int two)
 {
+    unsigned int low, high;
+
+    GetRdtscpValue(&low, &high);
+
+    return GetUint64Value(low, high);
 }
 
-static int * MeasureSixArguments(int one, int two, int three, int four, int five, int six)
+static uint64_t MeasureOneArgument(int one)
 {
+    unsigned int low, high;
+
+    GetRdtscpValue(&low, &high);
+
+    return GetUint64Value(low, high);
 }
 
-static int * MeasureSevenArguments(int one, int two, int three, int four, int five, int six, int seven)
+static uint64_t MeasureZeroArguments(void)
 {
+    unsigned int low, high;
+
+    GetRdtscpValue(&low, &high);
+
+    return GetUint64Value(low, high);
 }
 
-static int MeasureProcedureCall(void)
+static int MeasureProcedureCall(int * arguments)
 {
-    GetRdtscpValue();
-    MeasureZeroArguments();
+    int argumentCount = arguments[0];
+    int low, high;
+    int ticks;
+
+    switch (argumentCount)
+    {
+        case 0:
+            GetRdtscpValue(&low, &high);
+            ticks = MeasureZeroArguments();
+            break;
+
+        case 1:
+            GetRdtscpValue(&low, &high);
+            ticks = MeasureOneArgument();
+            break;
+
+        case 2:
+            GetRdtscpValue(&low, &high);
+            ticks = MeasureTwoArguments();
+            break;
+
+        case 3:
+            GetRdtscpValue(&low, &high);
+            ticks = MeasureThreeArguments();
+            break;
+
+        case 4:
+            GetRdtscpValue(&low, &high);
+            ticks = MeasureFourArguments();
+            break;
+
+        case 5:
+            GetRdtscpValue(&low, &high);
+            ticks = MeasureFiveArguments();
+            break;
+
+        case 6:
+            GetRdtscpValue(&low, &high);
+            ticks = MeasureSixArguments();
+            break;
+
+        case 7:
+            GetRdtscpValue(&low, &high);
+            ticks = MeasureSevenArguments();
+            break;
+    }
+
+    return (int)(ticks - GetUint64Value(low, high));
 }
 
 static void InitializeMetrics(int sampleCount)
@@ -212,7 +307,17 @@ static void InitializeMetrics(int sampleCount)
     }
 
     _metrics[RDTSCP].Measure = MeasureRdtscp;
+    _metrics[RDTSCP].Arguments = NULL;
+
     _metrics[LOOP].Measure = MeasureLoop;
+    _metrics[LOOP].Arguments = NULL;
+
+    for (i = PROCEDURE_0; i <= PROCEDURE_7; i++)
+    {
+        _metrics[i].Measure = MeasureProcedureCall;
+        _metrics[i].Arguments = calloc(1, sizeof(int));
+        *_metrics[i].Arguments = i;
+    }
 }
 
 static void FinalizeMetrics(void)
@@ -223,6 +328,11 @@ static void FinalizeMetrics(void)
     {
         free(_metrics[i].Samples);
     }
+
+    for (i = PROCEDURE_0; i <= PROCEDURE_7; i++)
+    {
+        free(_metrics[i].Arguments);
+    }
 }
 
 static void PerformMeasurement(enum MEASUREMENT measurement)
@@ -232,7 +342,7 @@ static void PerformMeasurement(enum MEASUREMENT measurement)
 
     for (i = 0; i < _metrics[measurement].SampleCount; i++)
     {
-        _metrics[measurement].Samples[i] =  _metrics[measurement].Measure();
+        _metrics[measurement].Samples[i] =  _metrics[measurement].Measure(_metrics[measurement].Arguments);
         UpdateMetric(measurement, i);
     }
 
