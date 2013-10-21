@@ -38,10 +38,20 @@ As far as hardware overhead for measuring time, there is not much hardware overh
 
 Since this operation is rather fast, a hardware estimate includes an estimation on how many instructions there will be.  Thus, some of the code will be evaluated for hardware estimation.  The procedure itself, GetRTDSC(), is rather small and is a C inline function which cuts down on pushing and popping variables onto the stack.  The function defines two variables - the lower and uppper 32-bit values for the clock.  It then reads the clock and returns a 64-bit number by combining the two variables together.  Compliling the program with the -S option to generate the assembly file, there are eleven assembly instructions.  Since the L1 cache is somewhat generous - 32 KB for just instructions - I'm estimating that the entire process is in L1 cache when the clock code executes based on spatial proximity.  Estimating that it will take an extra clock cyle to return a value to a register, my estimate for reading the clock is:
 
-12 cycles
+Since the RDTSCP reading mechanism is just a C inline function, the mechanism to read the RDTSC is very minimal.  It executes the CPUID instruction, which acts as a barrier for the rest of the code that's running.  In fact, it requires three instuctions, two moves and the rdtsc instruction itself.  Assuming that these instructions would be L1 cache, I'd imagine that these three instructions would take three clock cycles to perform.
+
+23 cycles
 
 Since the reading of RDTSC is not a privleged call, there is not any overhead in regards to the operating system.  Obviously, the operating system could preempt this process, which would delay the time.  However, averaging many timings will minimize these outliers.
 
+Why did it not go as well?  Seeing a minimum value of 18 probably meant I was close.  Realistically, the instructions themselves probably take more than one clock cycle to perform.  The very best was 18 clock cycles - so this might be how long it takes to run those instructions.  The average might have more to do with an occasional L1 cache miss.  
 
 
+-----------------------
+
+Loop overhead
+
+------------------------
+
+Using the average of 22 from the previous experiment,  and the estimation error percentage.  An extra three instructions would take an extra six clock cycles for the loop.  
 
