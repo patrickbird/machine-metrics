@@ -17,14 +17,14 @@ enum MEASUREMENT
 {
     RDTSCP = 0,
     LOOP,
-    PROCEDURE_0,
+    PROCEDURE_INITIAL,
     PROCEDURE_1,
     PROCEDURE_2,
     PROCEDURE_3,
     PROCEDURE_4,
     PROCEDURE_5,
     PROCEDURE_6,
-    PROCEDURE_7,
+    PROCEDURE_FINAL,
     MEASUREMENT_COUNT
 };
 
@@ -242,11 +242,11 @@ static uint64_t MeasureZeroArguments(void)
 
 static int MeasureProcedureCall(int * arguments)
 {
-    int argumentCount = arguments[0];
     int low, high;
-    int ticks;
+    uint64_t ticks;
+    int one, two, three, four, five, six, seven;
 
-    switch (argumentCount)
+    switch (arguments[0] - PROCEDURE_INITIAL)
     {
         case 0:
             GetRdtscpValue(&low, &high);
@@ -255,41 +255,42 @@ static int MeasureProcedureCall(int * arguments)
 
         case 1:
             GetRdtscpValue(&low, &high);
-            ticks = MeasureOneArgument();
+            ticks = MeasureOneArgument(one);
             break;
 
         case 2:
             GetRdtscpValue(&low, &high);
-            ticks = MeasureTwoArguments();
+            ticks = MeasureTwoArguments(one, two);
             break;
 
         case 3:
             GetRdtscpValue(&low, &high);
-            ticks = MeasureThreeArguments();
+            ticks = MeasureThreeArguments(one, two, three);
             break;
 
         case 4:
             GetRdtscpValue(&low, &high);
-            ticks = MeasureFourArguments();
+            ticks = MeasureFourArguments(one, two, three, four);
             break;
 
         case 5:
             GetRdtscpValue(&low, &high);
-            ticks = MeasureFiveArguments();
+            ticks = MeasureFiveArguments(one, two, three, four, five);
             break;
 
         case 6:
             GetRdtscpValue(&low, &high);
-            ticks = MeasureSixArguments();
+            ticks = MeasureSixArguments(one, two, three, four, five, one);
             break;
 
         case 7:
             GetRdtscpValue(&low, &high);
-            ticks = MeasureSevenArguments();
+            ticks = MeasureSevenArguments(1, 2, 3, 4, 5, 6, 7);
             break;
     }
 
-    return (int)(ticks - GetUint64Value(low, high));
+    ticks = (ticks - GetUint64Value(low, high));
+    return (int)ticks;
 }
 
 static void InitializeMetrics(int sampleCount)
@@ -312,11 +313,11 @@ static void InitializeMetrics(int sampleCount)
     _metrics[LOOP].Measure = MeasureLoop;
     _metrics[LOOP].Arguments = NULL;
 
-    for (i = PROCEDURE_0; i <= PROCEDURE_7; i++)
+    for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
         _metrics[i].Measure = MeasureProcedureCall;
         _metrics[i].Arguments = calloc(1, sizeof(int));
-        *_metrics[i].Arguments = i;
+        _metrics[i].Arguments[0] = i;
     }
 }
 
@@ -329,7 +330,7 @@ static void FinalizeMetrics(void)
         free(_metrics[i].Samples);
     }
 
-    for (i = PROCEDURE_0; i <= PROCEDURE_7; i++)
+    for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
         free(_metrics[i].Arguments);
     }
