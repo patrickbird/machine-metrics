@@ -15,7 +15,7 @@
 
 enum MEASUREMENT
 {
-    SYSTEM_OVERHEAD = 0,
+    RDTSCP = 0,
     MEASUREMENT_COUNT
 };
 
@@ -36,7 +36,7 @@ static struct METRIC
 
 static const char * MetricNames[MEASUREMENT_COUNT] =
 {
-    "System Overhead"
+    "RDTSCP"
 };
 
 static int SetProcessorAffinity(int * arguments)
@@ -58,12 +58,10 @@ static int SetPriority(int * arguments)
     return setpriority(PRIO_PROCESS, 0, priority);
 } 
 
-static inline uint64_t GetRdtscValue(void)
+static inline void GetRdtscpValue(unsigned int * low, unsigned int * high)
 {
-    unsigned int low, high;
-    __asm__ volatile("rdtsc" : "=a" (low), "=d" (high));
-    
-    return (uint64_t)low | ((uint64_t)high << 32);
+    uint32_t temp;
+    __asm__ volatile("rdtscp" : "=a" (*low), "=d" (*high), "=c"(temp): : );
 }
 
 static void Initialize(int (* function)(int *), int * arguments, char * string)
@@ -116,14 +114,20 @@ static void UpdateMeasurementCalculations(enum MEASUREMENT measurement)
     _metrics[measurement].StandardDeviation = sqrt(sum / _metrics[measurement].SampleCount);
 }
 
-static int GetSystemOverhead(void)
+static inline uint64_t GetUint64Value(unsigned int low, unsigned int high)
 {
-    uint64_t rdtsc1, rdtsc2;
+    return (uint64_t)low | ((uint64_t)high << 32);
+}
 
-    rdtsc1 = GetRdtscValue();
-    rdtsc2 = GetRdtscValue();
+static int MeasureRdtscp(void)
+{
+    unsigned int rdtsc1Low, rdtsc1High;
+    unsigned int rdtsc2Low, rdtsc2High;
 
-    return (double)(rdtsc2 - rdtsc1);    
+    GetRdtscpValue(&rdtsc1Low, &rdtsc1High);
+    GetRdtscpValue(&rdtsc2Low, &rdtsc2High);
+
+    return (double)(GetUint64Value(rdtsc2Low, rdtsc2High) - GetUint64Value(rdtsc1Low, rdtsc1High));
 }
 
 static int GetLoopOverhead(void)
@@ -133,7 +137,7 @@ static int GetLoopOverhead(void)
 
     for (i = 0; i < 2; i++)
     {
-        rdtsc[i] = GetRdtscValue();
+        //rdtsc[i] = GetRdtscValue();
     }
 
     return (double)(rdtsc[1] - rdtsc[0]);
@@ -153,7 +157,7 @@ static void InitializeMetrics(int sampleCount)
         _metrics[i].Name = MetricNames[i];
     }
 
-    _metrics[SYSTEM_OVERHEAD].Measure = GetSystemOverhead;
+    _metrics[RDTSCP].Measure = MeasureRdtscp;
 }
 
 static void FinalizeMetrics(void)
@@ -194,10 +198,10 @@ int main(int argc, char * argv[])
     int arguments[1];
     enum MEASUREMENT i = 0;
 
-    //Initialize(&SetProcessorAffinity, NULL, "Processor Affinity");
+    Initialize(&SetProcessorAffinity, NULL, "Processor Affinity");
     
     arguments[0] = PRIO_MIN;
-    //Initialize(&SetPriority, arguments, "Priority");
+    Initialize(&SetPriority, arguments, "Priority");
 
     printf("Argument %s\n", argv[1]);
     InitializeMetrics((argc <= 1) ? SAMPLE_COUNT : atoi(argv[1]));
