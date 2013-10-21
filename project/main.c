@@ -16,6 +16,7 @@
 enum MEASUREMENT
 {
     RDTSCP = 0,
+    LOOP,
     MEASUREMENT_COUNT
 };
 
@@ -36,7 +37,8 @@ static struct METRIC
 
 static const char * MetricNames[MEASUREMENT_COUNT] =
 {
-    "RDTSCP"
+    "RDTSCP",
+    "LOOP"
 };
 
 static int SetProcessorAffinity(int * arguments)
@@ -130,17 +132,69 @@ static int MeasureRdtscp(void)
     return (double)(GetUint64Value(rdtsc2Low, rdtsc2High) - GetUint64Value(rdtsc1Low, rdtsc1High));
 }
 
-static int GetLoopOverhead(void)
+static int MeasureLoop(void)
 {
     int i = 0;
-    uint64_t rdtsc[2];
+    int sum = 0;
+    unsigned int lows[100];
+    unsigned int highs[100];
 
-    for (i = 0; i < 2; i++)
+    for (i = 0; i < 100; i++)
     {
-        //rdtsc[i] = GetRdtscValue();
+        GetRdtscpValue(&lows[i], &highs[i]);
     }
 
-    return (double)(rdtsc[1] - rdtsc[0]);
+    for (i = 0; i < 99; i++)
+    {
+        sum += ((GetUint64Value(lows[i + 1], highs[i + 1]) - GetUint64Value(lows[i], highs[i]))); 
+    }
+
+    return ((double)sum / 99.0);
+}
+
+static int * MeasureZeroArguments(void)
+{
+    unsigned int low, high;
+
+    GetRdtscpValue(&low, &high);
+    MeasureOneArgument(low);
+}
+
+static int * MeasureOneArgument(int one)
+{
+    unsigned int low, high;
+
+    GetRdtscpValue(&low, &high);
+}
+
+static int * MeasureTwoArguments(int one, int two)
+{
+}
+
+static int * MeasureThreeArguments(int one, int two, int three)
+{
+}
+
+static int * MeasureFourArguments(int one, int two, int three, int four)
+{
+}
+
+static int * MeasureFiveArguments(int one, int two, int three, int four, int five)
+{
+}
+
+static int * MeasureSixArguments(int one, int two, int three, int four, int five, int six)
+{
+}
+
+static int * MeasureSevenArguments(int one, int two, int three, int four, int five, int six, int seven)
+{
+}
+
+static int MeasureProcedureCall(void)
+{
+    GetRdtscpValue();
+    MeasureZeroArguments();
 }
 
 static void InitializeMetrics(int sampleCount)
@@ -158,6 +212,7 @@ static void InitializeMetrics(int sampleCount)
     }
 
     _metrics[RDTSCP].Measure = MeasureRdtscp;
+    _metrics[LOOP].Measure = MeasureLoop;
 }
 
 static void FinalizeMetrics(void)
