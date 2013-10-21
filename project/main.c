@@ -58,6 +58,8 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Procedure (Seven Arguments)"
 };
 
+static int _dummy;
+
 static int SetProcessorAffinity(int * arguments)
 {
     cpu_set_t cpu_set;
@@ -173,6 +175,8 @@ static uint64_t MeasureSevenArguments(int one, int two, int three, int four, int
     unsigned int low, high;
 
     GetRdtscpValue(&low, &high);
+    
+    _dummy = one + two + three + four + five + six + seven;
 
     return GetUint64Value(low, high);
 }
@@ -182,6 +186,8 @@ static uint64_t MeasureSixArguments(int one, int two, int three, int four, int f
     unsigned int low, high;
 
     GetRdtscpValue(&low, &high);
+    
+    _dummy = one + two + three + four + five + six;
 
     return GetUint64Value(low, high);
 }
@@ -192,6 +198,8 @@ static uint64_t MeasureFiveArguments(int one, int two, int three, int four, int 
 
     GetRdtscpValue(&low, &high);
 
+    _dummy = one + two + three + four + five;
+
     return GetUint64Value(low, high);
 }
 
@@ -201,6 +209,8 @@ static uint64_t MeasureFourArguments(int one, int two, int three, int four)
 
     GetRdtscpValue(&low, &high);
 
+    _dummy = one + two + three + four;
+    
     return GetUint64Value(low, high);
 }
 
@@ -209,6 +219,8 @@ static uint64_t MeasureThreeArguments(int one, int two, int three)
     unsigned int low, high;
 
     GetRdtscpValue(&low, &high);
+    
+    _dummy = one + two + three;
 
     return GetUint64Value(low, high);
 }
@@ -219,6 +231,8 @@ static uint64_t MeasureTwoArguments(int one, int two)
 
     GetRdtscpValue(&low, &high);
 
+    _dummy = one + two;
+
     return GetUint64Value(low, high);
 }
 
@@ -227,6 +241,8 @@ static uint64_t MeasureOneArgument(int one)
     unsigned int low, high;
 
     GetRdtscpValue(&low, &high);
+
+    _dummy = one;
 
     return GetUint64Value(low, high);
 }
@@ -280,12 +296,12 @@ static int MeasureProcedureCall(int * arguments)
 
         case 6:
             GetRdtscpValue(&low, &high);
-            ticks = MeasureSixArguments(one, two, three, four, five, one);
+            ticks = MeasureSixArguments(one, two, three, four, five, six);
             break;
 
         case 7:
             GetRdtscpValue(&low, &high);
-            ticks = MeasureSevenArguments(1, 2, 3, 4, 5, 6, 7);
+            ticks = MeasureSevenArguments(one, two, three, four, five, six, seven);
             break;
     }
 
@@ -378,6 +394,8 @@ int main(int argc, char * argv[])
     }
 
     FinalizeMetrics();
+
+    printf("Reference the dummy: %d", _dummy);
 
 	return 0;
 }
