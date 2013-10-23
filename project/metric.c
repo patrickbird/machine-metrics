@@ -52,10 +52,10 @@ static void UpdateMeasurementCalculations(enum MEASUREMENT measurement);
 static inline void GetRdtscpValue(unsigned int * low, unsigned int * high);
 static inline uint64_t GetUint64Value(unsigned int low, unsigned int high);
 
-static int MeasureRdtscp(int * arguments);
-static int MeasureLoop(int * arguments);
-static int MeasureProcedureCall(int * arguments);
-static int MeasureSystemCall(int * arguments);
+static uint64_t MeasureRdtscp(int * arguments);
+static uint64_t MeasureLoop(int * arguments);
+static uint64_t MeasureProcedureCall(int * arguments);
+static uint64_t MeasureSystemCall(int * arguments);
 static uint64_t MeasureZeroArguments(void);
 static uint64_t MeasureOneArgument(int one);
 static uint64_t MeasureTwoArguments(int one, int two);
@@ -180,7 +180,7 @@ static inline uint64_t GetUint64Value(unsigned int low, unsigned int high)
     return (uint64_t)low | ((uint64_t)high << 32);
 }
 
-static int MeasureRdtscp(int * arguments)
+static uint64_t MeasureRdtscp(int * arguments)
 {
     unsigned int rdtsc1Low, rdtsc1High;
     unsigned int rdtsc2Low, rdtsc2High;
@@ -188,10 +188,10 @@ static int MeasureRdtscp(int * arguments)
     GetRdtscpValue(&rdtsc1Low, &rdtsc1High);
     GetRdtscpValue(&rdtsc2Low, &rdtsc2High);
 
-    return (double)(GetUint64Value(rdtsc2Low, rdtsc2High) - GetUint64Value(rdtsc1Low, rdtsc1High));
+    return GetUint64Value(rdtsc2Low, rdtsc2High) - GetUint64Value(rdtsc1Low, rdtsc1High);
 }
 
-static int MeasureLoop(int * arguments)
+static uint64_t MeasureLoop(int * arguments)
 {
     int i = 0;
     int sum = 0;
@@ -297,7 +297,7 @@ static uint64_t MeasureZeroArguments(void)
     return GetUint64Value(low, high);
 }
 
-static int MeasureProcedureCall(int * arguments)
+static uint64_t MeasureProcedureCall(int * arguments)
 {
     unsigned int low, high;
     uint64_t ticks;
@@ -347,10 +347,10 @@ static int MeasureProcedureCall(int * arguments)
     }
 
     ticks = (ticks - GetUint64Value(low, high));
-    return (int)ticks;
+    return ticks;
 }
 
-static int MeasureSystemCall(int * arguments)
+static uint64_t MeasureSystemCall(int * arguments)
 {
     pid_t pid;
     unsigned int low1, high1, low2, high2;
