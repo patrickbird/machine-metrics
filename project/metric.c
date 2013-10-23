@@ -299,7 +299,7 @@ static uint64_t MeasureZeroArguments(void)
 
 static int MeasureProcedureCall(int * arguments)
 {
-    int low, high;
+    unsigned int low, high;
     uint64_t ticks;
     int one, two, three, four, five, six, seven;
 
@@ -353,7 +353,7 @@ static int MeasureProcedureCall(int * arguments)
 static int MeasureSystemCall(int * arguments)
 {
     pid_t pid;
-    int low1, high1, low2, high2;
+    unsigned int low1, high1, low2, high2;
 
     GetRdtscpValue(&low1, &high1);
 
