@@ -76,5 +76,18 @@ The hardware cost to fix the TLB - two dozen clock cycles
 
 Add 60 to about 30 ~ 100 clock cycles
 
+------------------------
+
+Process vs threads
+
+------------------------
+
+For process:
+
+Won't copy anything...have to get pid which I already have some metrics on it.  Create new virtual address space.  Have to update TLB and page table.  ~ 120
+
+
+
+
 
 

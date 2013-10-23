@@ -48,7 +48,8 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Procedure (Seven Arguments)",
     "System Call",
     "Fork",
-    "PThread"
+    "PThread",
+    "Fork Context Switch"
 };
 
 static int _dummy;
@@ -72,6 +73,7 @@ static uint64_t MeasureSixArguments(int one, int two, int three, int four, int f
 static uint64_t MeasureSevenArguments(int one, int two, int three, int four, int five, int six, int seven);
 static uint64_t MeasureFork(int * arguments);
 static uint64_t MeasurePthread(int * arguments);
+static uint64_t MeasureForkContextSwitch(int * arguments);
 
 extern void InitializeMetrics(int sampleCount)
 {
@@ -93,6 +95,7 @@ extern void InitializeMetrics(int sampleCount)
     _metrics[SYSTEM_CALL].Measure = MeasureSystemCall;
     _metrics[FORK].Measure = MeasureFork;
     _metrics[PTHREAD].Measure = MeasurePthread;
+    _metrics[FORK_CONTEXT_SWITCH].Measure = MeasureForkContextSwitch;
 
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
@@ -430,6 +433,31 @@ static uint64_t MeasurePthread(int * arguments)
 
     GetRdtscpValue(&low2, &high2);
     
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static uint64_t MeasureForkContextSwitch(int * arguments)
+{
+    pid_t pid, parentPid;
+    unsigned int low1, high1, low2, high2;
+    
+    pid = fork();
+
+    if (pid == 0)
+    {
+        GetRdtscpValue(&low1, &high1);
+
+        kill(parentPid, 1)
+
+        exit(0);
+    }
+    else
+    {
+        parentPid = pid;
+        pause();
+        GetRdtscpValue(&low2, &high2);
+    }
+
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
