@@ -10,6 +10,7 @@
 #include <time.h>
 #include <sys/resource.h>
 #include <sys/time.h>
+#include <sys/types.h>
 
 #define SAMPLE_COUNT 50
 
@@ -307,6 +308,16 @@ static int MeasureProcedureCall(int * arguments)
 
     ticks = (ticks - GetUint64Value(low, high));
     return (int)ticks;
+}
+
+static int MeasureSystemCall(int * arguments)
+{
+    pid_t pid;
+    int low, high;
+
+    GetRdtscpValue(&low, &high);
+
+
 }
 
 static void InitializeMetrics(int sampleCount)
