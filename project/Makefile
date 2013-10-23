@@ -1,5 +1,5 @@
-main.o: main.c system.o metric.o
-	gcc -o main.o main.c system.o metric.o -lm
+measure: main.c system.o metric.o
+	gcc -o measure main.c system.o metric.o -lm
 
 system.o: system.c
 	gcc -c system.c
