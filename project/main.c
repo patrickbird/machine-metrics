@@ -18,6 +18,7 @@ enum MEASUREMENT
 {
     RDTSCP = 0,
     LOOP,
+
     PROCEDURE_INITIAL,
     PROCEDURE_1,
     PROCEDURE_2,
@@ -26,7 +27,10 @@ enum MEASUREMENT
     PROCEDURE_5,
     PROCEDURE_6,
     PROCEDURE_FINAL,
-    MEASUREMENT_COUNT
+
+    SYSTEM_CALL,
+
+    MEASUREMENT_COUNT,
 };
 
 static struct METRIC
@@ -56,7 +60,8 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Procedure (Four Arguments)",
     "Procedure (Five Arguments)",
     "Procedure (Six Arguments)",
-    "Procedure (Seven Arguments)"
+    "Procedure (Seven Arguments)",
+    "System Call"
 };
 
 static int _dummy;
@@ -313,11 +318,15 @@ static int MeasureProcedureCall(int * arguments)
 static int MeasureSystemCall(int * arguments)
 {
     pid_t pid;
-    int low, high;
+    int low1, high1, low2, high2;
 
-    GetRdtscpValue(&low, &high);
+    GetRdtscpValue(&low1, &high1);
 
+    pid = getpid();
 
+    GetRdtscpValue(&low2, &high2);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
 static void InitializeMetrics(int sampleCount)
@@ -332,13 +341,12 @@ static void InitializeMetrics(int sampleCount)
         _metrics[i].SampleCount = sampleCount;
         _metrics[i].Samples = calloc(_metrics[i].SampleCount, sizeof(double));
         _metrics[i].Name = MetricNames[i];
+        _metrics[i].Arguments = NULL;
     }
 
     _metrics[RDTSCP].Measure = MeasureRdtscp;
-    _metrics[RDTSCP].Arguments = NULL;
-
     _metrics[LOOP].Measure = MeasureLoop;
-    _metrics[LOOP].Arguments = NULL;
+    _metrics[SYSTEM_CALL] = MeasureSystemCall;
 
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {

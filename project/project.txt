@@ -53,5 +53,28 @@ Loop overhead
 
 ------------------------
 
-Using the average of 22 from the previous experiment,  and the estimation error percentage.  An extra three instructions would take an extra six clock cycles for the loop.  
+Using the average of 22 from the previous experiment,  and the estimation error percentage.  An extra three instructions would take an extra six clock cycles for the loop.
+
+
+------------------------
+
+Function overhead
+
+------------------------
+
+For the first function call, it will be on par with the loop overhead.  After that, it will be an additional 1-2 clock cycles for pushing the variable onto the stack.
+
+------------------------
+
+System call
+
+----------------------
+
+The estimation of the system call is going to vary depending on the type of system call.  Getpid should be fairly simple.  There are maybe about ten instructions involved in the system call.  And then the context switching.  Maybe a dozen or so instructions to interpret the response and another two dozen for the procedure and then return control.  The co
+
+The hardware cost to fix the TLB - two dozen clock cycles
+
+Add 60 to about 30 ~ 100 clock cycles
+
+
 
