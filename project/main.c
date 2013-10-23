@@ -7,7 +7,7 @@
 
 int main(int argc, char * argv[])
 {
-    enum MEASUREMENT;
+    enum MEASUREMENT i;
 
     InitializeSystem();
 

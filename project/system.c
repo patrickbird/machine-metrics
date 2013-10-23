@@ -1,5 +1,8 @@
+#define _GNU_SOURCE
+
 #include <sched.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/time.h>
 
@@ -7,7 +10,7 @@ static void InitializeSubsystem(int (* function)(int *), int * arguments, char *
 static int SetProcessorAffinity(int * arguments);
 static int SetPriority(int * arguments);
 
-extern void IntializeSystem(void)
+extern void InitializeSystem(void)
 {
     int argument;
 

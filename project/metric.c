@@ -82,7 +82,7 @@ extern void InitializeMetrics(int sampleCount)
 
     _metrics[RDTSCP].Measure = MeasureRdtscp;
     _metrics[LOOP].Measure = MeasureLoop;
-    _metrics[SYSTEM_CALL] = MeasureSystemCall;
+    _metrics[SYSTEM_CALL].Measure = MeasureSystemCall;
 
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
