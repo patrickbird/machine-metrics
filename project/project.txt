@@ -40,7 +40,7 @@ Since this operation is rather fast, a hardware estimate includes an estimation 
 
 Since the RDTSCP reading mechanism is just a C inline function, the mechanism to read the RDTSC is very minimal.  It executes the CPUID instruction, which acts as a barrier for the rest of the code that's running.  In fact, it requires three instuctions, two moves and the rdtsc instruction itself.  Assuming that these instructions would be L1 cache, I'd imagine that these three instructions would take three clock cycles to perform.
 
-23 cycles
+13 cycles
 
 Since the reading of RDTSC is not a privleged call, there is not any overhead in regards to the operating system.  Obviously, the operating system could preempt this process, which would delay the time.  However, averaging many timings will minimize these outliers.
 
