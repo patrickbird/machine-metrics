@@ -1,0 +1,117 @@
+V Kernel
+--------
+
+- OS structured around message- based IPC for diskless workstation and large file servers
+
+What is the paper tyring to demonstrate?
+- that diskless workstations do not suffer significant penalty for remote access
+
+All IPC in the V Kernel is based up a generic message- based interface.
+
+Paper addresses the concern that V Keryel- style IPC might not be suited for network
+
+Focuses on mechanism
+
+What are the characteristics of the V kernel IPC?
+- synchronous
+- small message size
+- control and data messages different
+
+Lots of messages on network
+
+First they make remote operations efficient:
+- implemented in kernel
+- use raw ethernet frames; no procol processing
+- sync req/response used to build reliable datagrams on top of unreliable frames
+- reduces buffering
+- no per- packet acks for file page-level transfers
+
+They evaluate network penalty.  Why measure it?
+- the cost of using the network
+
+What were their arguments that remote access did not impose very much overhead?
+- only adds a small delay relative to voerall delay
+
+They conclude that random remote file access adds a minimum penalty.  Why?
+- same argument as kernel primitives
+- network penalty is 4ms, disk is 20ms, only 20% more than local
+- more questions: what is your buffer cache?  what's your processor or memory like?
+- you need to ask about all the details of the experiment when articles report performance
+
+Then they conclude that generic V IPC adds minimum overhead over a specialized file access protocol
+
+Do you agree with this argument?
+- no
+- actually, large data transfers are in fact streamed.
+
+What is the argument that file streaming is not necessary?
+
+Why does local disk access today seem much faster than remote disk access?
+- sequeuntial access from local disk > b/w of 10Mbit ethernet
+- overhead of disk I/O less than network I/O (protocol processing)
+
+Sprite
+------
+
+What were the three technology trends that motivated sprite?
+- networks
+- large memories
+- multi processor
+
+Extends unix in three interesting ways
+- single uniform namespace for files and devies
+- shared memory among processes
+- process migration
+
+What are the semantics of shared memory?
+- always share if possible
+
+Sprite has two interesting aspects to its kernel structure
+- support for multiprocessor
+- support for RPC
+
+Note
+- Sprite RPC is an internal OS device
+
+Prefix Table
+- What are prefix tables and domains, and how are they used?
+-- Kind of like a lookup table with a cache
+- HOw does it compare with UNIX's NFS mounts?
+- "Remote links" are used to distinguish a mount point.  How do clients resolve unknown mappings?
+- How is reconfiguration handled?
+
+One important aspect of Sprite is that it caches file data on both clients and servers.
+- client caches absorb read reuse and delayed writes 
+- server caches
+-- very large memories
+-- exploit sharing among many clients
+
+Recall that the V Kernel specifically avoided caching on clients because of the ensuing consitency problem.
+
+Sprite was willing to tackle Sprite consistency
+
+What are the two cache consistency problems and how does sprite handle them?
+- sequential write-sharing: written by one machine, then read by another
+-- version numbers to detect old versions of cached data
+- concurrent write-sharing: written by both machines
+-- caching disabled
+
+Paper says that Sprite provides consistency, but not guarantee applications perform reads/writes in synchronized ways
+
+Sprite differs from unix in its use of files as backing store.  Why does it use files?
+- uniform naming across network
+- facilitates process migration
+- can aggregate backing store for multiple diskless clients onto one machine
+- don't have to commit separate disk space to backing store
+- can cache client backing store pages in server cache
+
+Why use separate backing store files for stack and data?
+- so you can fork the stack if sharing
+
+What is double caching?  How to handle it?
+- 
+
+Sprite is primarily remembered for
+- its file caching protocol
+- dynamic balance between VM and file buffer cache usage
+- argument about large client and server caches
