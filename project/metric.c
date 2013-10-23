@@ -19,14 +19,15 @@ static struct METRIC
     int SampleCount;
     int MinIndex;
     int MaxIndex;
-    double Min;
-    double Max;
+    uint64_t First;
+    uint64_t Min;
+    uint64_t Max;
     double Mean;
     double StandardDeviation;
     double Sum;
-    double * Samples;
+    uint64_t * Samples;
     const char * Name;
-    int (* Measure)(int *);
+    uint64_t (* Measure)(int *);
     int * Arguments;
 } _metrics[MEASUREMENT_COUNT];
 
@@ -71,8 +72,8 @@ extern void InitializeMetrics(int sampleCount)
 
     for (i = 0; i < MEASUREMENT_COUNT; i++)
     {
-        _metrics[i].Max = INT_MIN;
-        _metrics[i].Min = INT_MAX;
+        _metrics[i].Max = 0;
+        _metrics[i].Min = ULLONG_MAX;
         _metrics[i].Sum = 0;
         _metrics[i].SampleCount = sampleCount;
         _metrics[i].Samples = calloc(_metrics[i].SampleCount, sizeof(double));
@@ -106,7 +107,7 @@ extern void FinalizeMetrics(void)
         free(_metrics[i].Arguments);
     }
 
-    printf("Reference the dummy: %d", _dummy);
+    printf("Reference the dummy: %d\n", _dummy);
 }
 
 extern void PerformMeasurement(enum MEASUREMENT measurement)
@@ -125,26 +126,44 @@ extern void PerformMeasurement(enum MEASUREMENT measurement)
     printf("--------------------------------------\n");
     printf("%s\n", _metrics[measurement].Name);
     printf("--------------------------------------\n");
-    printf("Min: %f at count %d\n", _metrics[measurement].Min, _metrics[measurement].MinIndex);
-    printf("Max: %f at count %d\n", _metrics[measurement].Max, _metrics[measurement].MaxIndex);
+    printf("First: %ld\n", _metrics[measurement].First);
+    printf("Min: %ld at count %d\n", _metrics[measurement].Min, _metrics[measurement].MinIndex);
+    printf("Max: %ld at count %d\n", _metrics[measurement].Max, _metrics[measurement].MaxIndex);
     printf("Average: %f\n", _metrics[measurement].Mean);
     printf("Standard Deviation: %f\n", _metrics[measurement].StandardDeviation);
     printf("Sample Count: %d\n\n", _metrics[measurement].SampleCount);
+
+    /*
+    for (i = 0; i < _metrics[measurement].SampleCount; i++)
+    {
+        printf("%ld, ", _metrics[measurement].Samples[i]);
+    }
+
+    printf("\n");
+    */
 }
 
 static void UpdateMetric(enum MEASUREMENT measurement, int index)
 {
-    double value = _metrics[measurement].Samples[index];
+    uint64_t value = _metrics[measurement].Samples[index];
 
-    if (value < _metrics[measurement].Min)
+    if (index == 0)
     {
-        _metrics[measurement].Min = value;
-        _metrics[measurement].MinIndex = index;
+        _metrics[measurement].First = value;
     }
-    else if (value > _metrics[measurement].Max)
+    else
     {
-        _metrics[measurement].Max = value;
-        _metrics[measurement].MaxIndex = index;
+        if (value < _metrics[measurement].Min)
+        {
+            _metrics[measurement].Min = value;
+            _metrics[measurement].MinIndex = index;
+        }
+    
+        if (value > _metrics[measurement].Max)
+        {
+            _metrics[measurement].Max = value;
+            _metrics[measurement].MaxIndex = index;
+        }
     }
 
     _metrics[measurement].Sum += value;
