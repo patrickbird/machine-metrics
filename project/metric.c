@@ -43,7 +43,8 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Procedure (Five Arguments)",
     "Procedure (Six Arguments)",
     "Procedure (Seven Arguments)",
-    "System Call"
+    "System Call",
+    "Fork"
 };
 
 static int _dummy;
@@ -84,6 +85,7 @@ extern void InitializeMetrics(int sampleCount)
     _metrics[RDTSCP].Measure = MeasureRdtscp;
     _metrics[LOOP].Measure = MeasureLoop;
     _metrics[SYSTEM_CALL].Measure = MeasureSystemCall;
+    _metrics[FORK].Measure = MeasureFork;
 
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
@@ -385,6 +387,22 @@ static uint64_t MeasureSystemCall(int * arguments)
 
 static uint64_t MeasureFork(int * arguments)
 {
+    pid_t pid;
+    unsigned int low1, high1, low2, high2;
 
+    GetRdtscpValue(&low1, &high1);
+
+    pid = fork();
+
+    if (pid == 0)
+    {
+        exit(0);
+    }
+    else
+    {
+        GetRdtscpValue(&low2, &high2);
+    }
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
