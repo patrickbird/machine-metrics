@@ -17,6 +17,7 @@ enum MEASUREMENT
 
     SYSTEM_CALL,
     FORK,
+    PTHREAD,
     MEASUREMENT_COUNT
 };
 

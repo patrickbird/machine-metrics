@@ -2,6 +2,7 @@
 
 #include <limits.h>
 #include <math.h>
+#include <pthread.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -46,7 +47,8 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Procedure (Six Arguments)",
     "Procedure (Seven Arguments)",
     "System Call",
-    "Fork"
+    "Fork",
+    "PThread"
 };
 
 static int _dummy;
@@ -69,6 +71,7 @@ static uint64_t MeasureFiveArguments(int one, int two, int three, int four, int 
 static uint64_t MeasureSixArguments(int one, int two, int three, int four, int five, int six);
 static uint64_t MeasureSevenArguments(int one, int two, int three, int four, int five, int six, int seven);
 static uint64_t MeasureFork(int * arguments);
+static uint64_t MeasurePthread(int * arguments);
 
 extern void InitializeMetrics(int sampleCount)
 {
@@ -89,6 +92,7 @@ extern void InitializeMetrics(int sampleCount)
     _metrics[LOOP].Measure = MeasureLoop;
     _metrics[SYSTEM_CALL].Measure = MeasureSystemCall;
     _metrics[FORK].Measure = MeasureFork;
+    _metrics[PTHREAD].Measure = MeasurePthread;
 
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
@@ -406,6 +410,26 @@ static uint64_t MeasureFork(int * arguments)
         GetRdtscpValue(&low2, &high2);
     }
 
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static void * DoStuff(void * arguments)
+{
+    return NULL;
+}
+
+static uint64_t MeasurePthread(int * arguments)
+{
+    int retValue;
+    unsigned int low1, high1, low2, high2;
+    pthread_t thread;
+
+    GetRdtscpValue(&low1, &high1);
+
+    retValue = pthread_create(&thread, NULL, DoStuff, NULL);
+
+    GetRdtscpValue(&low2, &high2);
+    
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
