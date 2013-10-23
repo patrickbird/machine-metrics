@@ -383,3 +383,8 @@ static uint64_t MeasureSystemCall(int * arguments)
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
+static uint64_t MeasureFork(int * arguments)
+{
+
+}
+
