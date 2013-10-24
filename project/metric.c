@@ -51,12 +51,14 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "System Call",
     "Fork",
     "PThread",
-    "Fork Context Switch"
+    "Fork Context Switch",
+    "PThread Context Switch"
 };
 
 static int _dummy;
 
-static pthread_mutex_t mutex;
+static pthread_mutex_t _mutex;
+static pthread_cond_t _condition;
 
 static void UpdateMetric(enum MEASUREMENT measurement, int index);
 static void UpdateMeasurementCalculations(enum MEASUREMENT measurement);
@@ -78,6 +80,7 @@ static uint64_t MeasureSevenArguments(int one, int two, int three, int four, int
 static uint64_t MeasureFork(int * arguments);
 static uint64_t MeasurePthread(int * arguments);
 static uint64_t MeasureForkContextSwitch(int * arguments);
+static uint64_t MeasurePthreadContextSwitch(int * arguments);
 
 extern void InitializeMetrics(int sampleCount)
 {
@@ -100,6 +103,7 @@ extern void InitializeMetrics(int sampleCount)
     _metrics[FORK].Measure = MeasureFork;
     _metrics[PTHREAD].Measure = MeasurePthread;
     _metrics[FORK_CONTEXT_SWITCH].Measure = MeasureForkContextSwitch;
+    _metrics[PTHREAD_CONTEXT_SWITCH].Measure = MeasurePthreadContextSwitch;
 
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
@@ -108,7 +112,8 @@ extern void InitializeMetrics(int sampleCount)
         _metrics[i].Arguments[0] = i;
     }
 
-    pthread_mutex_init(&mutex, NULL);
+    pthread_mutex_init(&_mutex, NULL);
+    pthread_cond_init(&_condition, NULL);
 }
 
 extern void FinalizeMetrics(void)
@@ -428,34 +433,16 @@ static void * DoStuff(void * arguments)
 }
 
 
-static void * FirstThread(void * arguments)
+static void * HelpContextSwitch(void * arguments)
 {
     unsigned int low, high;
-    uint64_t *  value;
-
-    pthread_mutex_lock(&mutex);
+    uint64_t * value = calloc(1, sizeof(uint64_t));
 
     GetRdtscpValue(&low, &high);
-
-    pthread_mutex_unlock(&mutex);
-
-    value = calloc(1, sizeof(uint64_t));
-    value[0] = GetUint64Value(low, high);
-
-    pthread_exit(value);
-}
-
-static void * SecondThread(void * arguments)
-{
-    unsigned int low, high;
-    uint64_t * value;
-
-    pthread_mutex_lock(&mutex);
-
-    GetRdtscpValue(&low, &high);
-
-    value = calloc(1, sizeof(uint64_t));
-    value[0] = GetUint64Value(low, high);
+    
+    pthread_cond_signal(&_condition);
+    
+    *value =  GetUint64Value(low, high);
 
     pthread_exit(value);
 }
@@ -478,20 +465,22 @@ static uint64_t MeasurePthread(int * arguments)
 static uint64_t MeasurePthreadContextSwitch(int * arguments)
 {
     int retValue;
-    pthread_t thread1, thread2;
+    unsigned int low, high;
+    pthread_t thread1;
     uint64_t * time1;
-    uint64_t * time2;
     uint64_t difference;
 
-    retValue = pthread_create(&thread1, NULL, FirstThread, NULL);
-    retValue = pthread_create(&thread2, NULL, SecondThread, NULL);
+    retValue = pthread_create(&thread1, NULL, HelpContextSwitch, "One");
+    
+    pthread_cond_wait(&_condition, &_mutex);
+    
+    GetRdtscpValue(&low, &high);
 
     pthread_join(thread1, (void**)&time1);
-    pthread_join(thread2, (void**)&time2);
 
-    difference = *time2 - *time1;
+    difference = GetUint64Value(low, high) - time1[0];
+    
     free(time1);
-    free(time2);
 
     return difference;    
 }
