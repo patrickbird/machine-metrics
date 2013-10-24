@@ -1,0 +1,175 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% LaTeX Example: Project Report
+%
+% Source: http://www.howtotex.com
+%
+% Feel free to distribute this example, but please keep the referral
+% to howtotex.com
+% Date: March 2011 
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% How to use writeLaTeX: 
+%
+% You edit the source code here on the left, and the preview on the
+% right shows you the result within a few seconds.
+%
+% Bookmark this page and share the URL with your co-authors. They can
+% edit at the same time!
+%
+% You can upload figures, bibliographies, custom classes and
+% styles using the files menu.
+%
+% If you're new to LaTeX, the wikibook is a great place to start:
+% http://en.wikibooks.org/wiki/LaTeX
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Edit the title below to update the display in My Documents
+%\title{Project Report}
+%
+%%% Preamble
+\documentclass[paper=a4, fontsize=11pt]{scrartcl}
+\usepackage[T1]{fontenc}
+\usepackage{fourier}
+
+\usepackage[english]{babel}															% English language/hyphenation
+\usepackage[protrusion=true,expansion=true]{microtype}	
+\usepackage{amsmath,amsfonts,amsthm} % Math packages
+\usepackage[pdftex]{graphicx}	
+\usepackage{url}
+
+
+%%% Custom sectioning
+\usepackage{sectsty}
+\allsectionsfont{\centering \normalfont\scshape}
+
+
+%%% Custom headers/footers (fancyhdr package)
+\usepackage{fancyhdr}
+\pagestyle{fancyplain}
+\fancyhead{}											% No page header
+\fancyfoot[L]{}											% Empty 
+\fancyfoot[C]{}											% Empty
+\fancyfoot[R]{\thepage}									% Pagenumbering
+\renewcommand{\headrulewidth}{0pt}			% Remove header underlines
+\renewcommand{\footrulewidth}{0pt}				% Remove footer underlines
+\setlength{\headheight}{13.6pt}
+
+
+%%% Equation and float numbering
+\numberwithin{equation}{section}		% Equationnumbering: section.eq#
+\numberwithin{figure}{section}			% Figurenumbering: section.fig#
+\numberwithin{table}{section}				% Tablenumbering: section.tab#
+
+
+%%% Maketitle metadata
+\newcommand{\horrule}[1]{\rule{\linewidth}{#1}} 	% Horizontal rule
+
+\title{
+		%\vspace{-1in} 	
+		\usefont{OT1}{bch}{b}{n}
+		\normalfont \normalsize \textsc{School of random department names} \\ [25pt]
+		\horrule{0.5pt} \\[0.4cm]
+		\huge CSE 221 Final Project \\
+        \huge       Draft 1         \\
+		\horrule{2pt} \\[0.5cm]
+}
+\author{
+		\normalfont 								\normalsize
+        Patrick Bird\\[-3pt]		\normalsize
+        patbird@gmail.com\\           \normalsize
+        \today
+}
+\date{}
+
+
+%%% Begin document
+\begin{document}
+\maketitle
+\section{Introduction}
+Over the last decade, an increasing number of services are transitioning to the cloud to leverage some of its power.  Pre-configured virtual machines and unlimited object storage attract many a company.  Many of these services attract companies who do not want to invest time and money into supporting infrastructure that is not in their area of specialty.
+
+The area of big data is also an interest to many.  Many organizations and instutions are amassing large datasets that is challenging on one hand since there is much potential to learn new connections between data that wasn't known before.  But it is also crippling from not knowing where to start analyzing and drawing connections.
+
+With both cloud technology and big data, the infrastructure is crtical for maintaining a robust platform to explore these two areas of technology.  The institution where I work in is involved in these two areas and that is what has motivated me to understand and characterize a system.
+
+The current project that I work on, basespace.com, leverages Amazon AWS services such as EC2, S3, SQS, and more.  And since our product is mainly the analysis of genomic data, the need for high throughput of both data, compute, and parallelism is needed.  Many of our analyses can take several hours to compute.  This timespan may seem acceptable, but as genomics and the clinical lab converge, speed will be critical for diagnosing health issues.  Any savings in time could, without sounding too cliche, save a life.
+
+Focusing on cloud computing, I wanted to characterize a local, high-performance bare-metal compute node.  Although outside the scope of this paper, I would eventually like to extend the study to actual VMs on these compute nodes and to compare their performance with the bare metal.  For instance, how does an 8 VCPU VM with 64 GB of memory compare with its bare-metal constituents.  What would be the cost of virtualization?
+
+Since this study involves high performance time measurement, I wanted to get as close as I could to the hardware without writing the whole thing in assembly.  Not to mention, the node runs CentOS linux, and knowing that GCC and the standard POSIX C headers were readily available, no other languages were really considered.  No special compiler options were really used either.  The only options I needed to provide were to link in math libraries for calculating the square root and for using pthreads.
+
+So far, I have invested about 25 hours into this project thus far.  I alone have done all the work in both research, code implementation and the production of this paper.
+
+\section{Machine Description}
+
+The system has two processors, with each having six cores that are hyperthreaded.  This information was called from /proc/cpuinfo and matched with the information from Intel's website.  The processors are Intel Xeon E5-2620 that run at 2000.053 MHz to be exact.  There are three levels of cache - 32 KB of L1 each for data and instructions, 256 KB of L2 (both), and 15360 KB of L3 (both).  
+
+The memory size is 128 GB of DDR3 RAM.  The potential speed is 1600 MHZ, however, the configurable clock speed is set to 1333 MHz.  The processor is setup so that it can utilize four memory channels with the RAM.  The more channels it has, the greater opportunity the processor has for read and write parallelism.  This information was found by the dmidecode command.
+
+The network card is full duplex gigabit ethernet.
+
+The operating system is 64-bit CentOS v6.4, kernel version v2.6.32-358.11.1.
+
+\section{Operations}
+This section will describe various operations that I estimated performance, how I came to those estimates, and how I performed measurements to measure these operations.  To begin with, this system is not a single RISC processor.  Unfortunatley for my current purposes, but to my computer's delight, there is not a one to one mapping between instructions and clock cycles.  At least for the first few operations, I couldn't merely just count up the instructions and add a little for overhead.
+
+As I mentioned in section 2, these processsors have multi-cores three levels of cache, around a 17-20 stage pipeline, an interprocessor communication mechanism.  Needless to say, estimating any sort of operation is difficult without an exhaustive knowledge of the internals of the processor and the system.
+
+Since there are so many variables in the system, I wanted to set out and eliminate as many as I could before I started to measure.  For one, I wanted to bind this measurement process to a particular processor.  If my process was interrupted and switched out to a different one, I wanted to ensure that the clock that I read every time was from the same processor.
+
+Thus, one of the first things that my process does upon startup is to set processor affinity.  There is a POSIX routine for this called \textit{sched\_setaffinity}.  When this routine is run at the beginning of my process, the process binds itself to the first processor.  With this binding, at least my clock will not vary from jumping to different CPUs.
+
+My next goal was to elevate the priority of the process to limit context switching as much as possible.  Obviously, I wouldn't have full control over how much CPU bandwidth I could use.  Again, there is a POSIX procedure for setting the priority - \textit{setpriority}.  This process is elevated to the minimum nice value, which is the highest priority.  At this point in time, it is -20.
+
+\begin{align} 
+	\begin{split}
+	(x+y)^3 	&= (x+y)^2(x+y)\\
+					&=(x^2+2xy+y^2)(x+y)\\
+					&=(x^3+2x^2y+xy^2) + (x^2y+2xy^2+y^3)\\
+					&=x^3+3x^2y+3xy^2+y^3
+	\end{split}					
+\end{align}
+Phasellus viverra nulla ut metus varius laoreet. Quisque rutrum. Aenean imperdiet. Etiam ultricies nisi vel augue. Curabitur ullamcorper ultricies 
+
+\subsection{Heading on level 2 (subsection)}
+Lorem ipsum dolor sit amet, consectetuer adipiscing elit. 
+\begin{align}
+	A = 
+	\begin{bmatrix}
+	A_{11} & A_{21} \\
+  	A_{21} & A_{22}
+	\end{bmatrix}
+\end{align}
+Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem.
+
+\subsubsection{Heading on level 3 (subsubsection)}
+Nulla consequat massa quis enim. Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu. In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. Nullam dictum felis eu pede mollis pretium. Integer tincidunt. Cras dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend tellus. Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim.
+
+\paragraph{Heading on level 4 (paragraph)}
+Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem. Nulla consequat massa quis enim. 
+
+
+\section{Lists}
+
+\subsection{Example for list (3*itemize)}
+\begin{itemize}
+	\item First item in a list 
+		\begin{itemize}
+		\item First item in a list 
+			\begin{itemize}
+			\item First item in a list 
+			\item Second item in a list 
+			\end{itemize}
+		\item Second item in a list 
+		\end{itemize}
+	\item Second item in a list 
+\end{itemize}
+
+\subsection{Example for list (enumerate)}
+\begin{enumerate}
+	\item First item in a list 
+	\item Second item in a list 
+	\item Third item in a list
+\end{enumerate}
+%%% End document
+\end{document}
