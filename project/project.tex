@@ -139,9 +139,11 @@ Thus, there needed to be a way to serialize the calls, or create an instruction 
 
 \subsubsection{Estimation}
 
-After the small routine to read the clock is loaded into cache, there is not much hardware interaction other than the CPU itself.  Since this is the case, a hardware estimation includes examining the software routine for performance.  There are fifteen assembly instructions in the \textit{GetRdtscp()} procedure with another four instructions for calling and returning.  In all, there about twenty instructions.  Accounting for 20% overhead, my hardware estimation is 24 clock cycles.
+After the small routine to read the clock is loaded into cache, there is not much hardware interaction other than the CPU itself.  Since this is the case, a hardware estimation includes examining the software routine for performance.  There are fifteen assembly instructions in the \textit{GetRdtscp()} procedure with another four instructions for calling and returning.  In all, there about twenty instructions.  Accounting for 20\% overhead, my hardware estimation is 24 clock cycles.
 
-The operating system does not add much overhead in this operation.  After the instructions are loaded from memory, the instructions will most likely stay in cache.  Thus, another 20% overhead will be accounted for random context switching.  Thus, the overall estimation time is around 30 clock cycles.
+The operating system does not add much overhead in this operation.  After the instructions are loaded from memory, the instructions will most likely stay in cache.  Thus, another 20\% overhead will be accounted for random context switching.  Thus, the overall estimation time is around 30 clock cycles (15 ns).
+
+\subsubsection{Measurement}
 
 After running the experiment a 1000 times, I get the following results:
 
@@ -149,24 +151,119 @@ After running the experiment a 1000 times, I get the following results:
     \begin{tabular}{ | l | l | l | p{5cm} |}
     \hline
     Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
-    24 cycles & 5 cycles & 30 cyles & 35 cyles \\ 
+    24 cycles & 5 cycles & 30 cyles & 35 cyles (18 ns) \\ 
     \hline
     \end{tabular}
 \end{center}
+
+My estimation was actually not as bad as I expected it to be.  My estimation was faster than what the average speed of the routine was, but close enough.  In fact, my estimation matched the minimal value that I observed over 1000 iterations.  Part of the reason why I think my estimate was fairly good was that there was not much happening here as far as the system goes.  There is no outside interface with peripheral devices or memory for that matter.
+
+The memory issue is interesting because for the most part, my performance only took a hit during the first iteration.  The CPU had to fetch the procedure from memory and load it into its cache.  After the routine was in cache, the performance increased significantly.
+
+As one can observe by the next grid, there is a tight range between the min and the max.  There is only a difference of 11 clock cycles with a standard deviation of 2.68 clock cycles.  The max in the table lists the max other than the first data point.  I intentionally did this for two reasons.
 
 \begin{center}
     \begin{tabular}{ | l | l | l | l | l | l |}
     \hline
-    No. of Samples & First Iteration & Min & Max & Mean & Standard Deviation \\ \hline
-    1000 iterations & 24 cycles & 5 cycles & 30 cyles & 35.5 cyles & 2.87 cycles \\ 
+    No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
+    1000 iterations & 53 cycles & 30 cycles & 41 cyles & 35.0 cyles & 2.68 cycles \\ 
     \hline
     \end{tabular}
 \end{center}
 
+For one, in all my measurements, I want to observe the cost of the CPU fetching the routine from memory if it has not already done so.  I also wanted to know after that, what is the next maximum value.  I followed this process for each of the operations.
 
+\subsection{Loop Overhead}
 
+\subsubsection{Estimation}
 
+Adding a loop construct to the measurement routine does not introduce a heavy burden.  In reality, it is just a few more instructions to add to the measurement routine.  ANd since it is a loop, there is pointer arithemetic that needs to happen to store the clock value.  Again there is no significant operating system cost to account for, so the entire extra cost for a loop routine will fall in the hardware domain.  Using the average cost from the RDTSCP routine, I estimate that the cost for a loop will be an extra ten cycles based upon the additional hardware instructions or 38 clock cycles (19 ns).
 
+\subsubsection{Measurement}
+
+After running the experiment a 1000 times, I observe the following results:
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | p{5cm} |}
+    \hline
+    Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
+    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+The estimate was actually very close to the actual answer which is very pleasing.  Though, trying to estimate this routine from scratch would have been much more difficult.  Since I had the convienence of the previous metric, my estimate was able to be close to the measure value value.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l |}
+    \hline
+    No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
+    1000 iterations & 45 cycles & 45 cycles & 371 cyles & 35.0 cyles & 2.68 cycles \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+\subsection{Procedure}
+
+\subsubsection{Estimation}
+
+The cost of calling a procedure will most likely be on par with the loop construct.  In the loop construct, there is a branch, an update to a register value, and pointer arithmetic for both the lower and upper 32 bits of the clock value.  For a procedure, it will be pushing and popping registers off the stack.  Obviously, the greater number of arguments, the greater number of registers that need to be pushed and popped.
+
+For zero arguments, there is almost no cost to calling a function other than pushing the return address and the call instruction itself.  For one argument, a register needs to be pushed, and the stack pointer needs to be adjusted.   F  Also, there is the call instruction. Then, for every variable, an additional register is pushed onto the stack.  Thus, we can use the equation
+
+extra cycles = RDTSCP + 2 (zero arguments) + 2n (arithmetic and register) 
+
+extra cycle = 37 + 2n
+
+Again, the cost of the operating system is neglible since the CPU is mainly just executing instructions from its local cache.  Thus, plugging in the values from the RDTSCP function, we get the following table:
+
+37
+39
+41
+43
+45
+47
+49
+
+In the C routines themselves, I ensured that the arguments were being referenced so the compiler would not try to optimize them away.
+
+\subsubsection{Measurement}
+
+Again, stepping on the shoulders of the RDTSCP measurement has been beneficial.  The measurements are within the bounds of my estimation.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | p{5cm} |}
+    \hline
+    Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
+    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\ \hline
+    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\  \hline
+    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\  \hline
+    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\  \hline
+    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\  \hline
+    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\  \hline
+    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+It is interesting to note that functions with two, three, four, and six arguments had the same average cost of 40 clock cycles.  Not to mention that all eight enumerations of functions are within five clock cyles of each other.  So in some ways there is a linear relationship between additional arguments and the time cost.  However, the cost is neglible.
+
+The various metrics for the different function calls are enumerated here:
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l |}
+    \hline
+    No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
+    1000 iterations & 45 cycles & 45 cycles & 371 cyles & 35.0 cyles & 2.68 cycles \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+\subsection{System Call}
+
+\subsubsection{Estimation}
+
+For a system call, linux needs to trap into the OS. 
 
 
 %%% End document
