@@ -246,8 +246,24 @@ Again, stepping on the shoulders of the RDTSCP measurement has been beneficial. 
     \end{tabular}
 \end{center}
 
+It is interesting to note that functions with two, three, four, and six arguments had the same average cost of 40 clock cycles.  Not to mention that all eight enumerations of functions are within five clock cyles of each other.  So in some ways there is a linear relationship between additional arguments and the time cost.  However, the cost is neglible.
 
+The various metrics for the different function calls are enumerated here:
 
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l |}
+    \hline
+    No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
+    1000 iterations & 45 cycles & 45 cycles & 371 cyles & 35.0 cyles & 2.68 cycles \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+\subsection{System Call}
+
+\subsubsection{Estimation}
+
+For a system call, linux needs to trap into the OS. 
 
 
 %%% End document
