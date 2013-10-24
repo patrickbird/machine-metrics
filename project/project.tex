@@ -31,10 +31,10 @@
 \usepackage[T1]{fontenc}
 \usepackage{fourier}
 
-\usepackage[english]{babel}															% English language/hyphenation
-\usepackage[protrusion=true,expansion=true]{microtype}	
+\usepackage[english]{babel}                                                         % English language/hyphenation
+\usepackage[protrusion=true,expansion=true]{microtype}  
 \usepackage{amsmath,amsfonts,amsthm} % Math packages
-\usepackage[pdftex]{graphicx}	
+\usepackage[pdftex]{graphicx}   
 \usepackage{url}
 
 
@@ -46,36 +46,36 @@
 %%% Custom headers/footers (fancyhdr package)
 \usepackage{fancyhdr}
 \pagestyle{fancyplain}
-\fancyhead{}											% No page header
-\fancyfoot[L]{}											% Empty 
-\fancyfoot[C]{}											% Empty
-\fancyfoot[R]{\thepage}									% Pagenumbering
-\renewcommand{\headrulewidth}{0pt}			% Remove header underlines
-\renewcommand{\footrulewidth}{0pt}				% Remove footer underlines
+\fancyhead{}                                            % No page header
+\fancyfoot[L]{}                                         % Empty 
+\fancyfoot[C]{}                                         % Empty
+\fancyfoot[R]{\thepage}                                 % Pagenumbering
+\renewcommand{\headrulewidth}{0pt}          % Remove header underlines
+\renewcommand{\footrulewidth}{0pt}              % Remove footer underlines
 \setlength{\headheight}{13.6pt}
 
 
 %%% Equation and float numbering
-\numberwithin{equation}{section}		% Equationnumbering: section.eq#
-\numberwithin{figure}{section}			% Figurenumbering: section.fig#
-\numberwithin{table}{section}				% Tablenumbering: section.tab#
+\numberwithin{equation}{section}        % Equationnumbering: section.eq#
+\numberwithin{figure}{section}          % Figurenumbering: section.fig#
+\numberwithin{table}{section}               % Tablenumbering: section.tab#
 
 
 %%% Maketitle metadata
-\newcommand{\horrule}[1]{\rule{\linewidth}{#1}} 	% Horizontal rule
+\newcommand{\horrule}[1]{\rule{\linewidth}{#1}}     % Horizontal rule
 
 \title{
-		%\vspace{-1in} 	
-		\usefont{OT1}{bch}{b}{n}
-		\normalfont \normalsize \textsc{School of random department names} \\ [25pt]
-		\horrule{0.5pt} \\[0.4cm]
-		\huge CSE 221 Final Project \\
+        %\vspace{-1in}  
+        \usefont{OT1}{bch}{b}{n}
+        \normalfont \normalsize \textsc{School of random department names} \\ [25pt]
+        \horrule{0.5pt} \\[0.4cm]
+        \huge CSE 221 Final Project \\
         \huge       Draft 1         \\
-		\horrule{2pt} \\[0.5cm]
+        \horrule{2pt} \\[0.5cm]
 }
 \author{
-		\normalfont 								\normalsize
-        Patrick Bird\\[-3pt]		\normalsize
+        \normalfont                                 \normalsize
+        Patrick Bird\\[-3pt]        \normalsize
         patbird@gmail.com\\           \normalsize
         \today
 }
@@ -263,7 +263,62 @@ The various metrics for the different function calls are enumerated here:
 
 \subsubsection{Estimation}
 
-For a system call, linux needs to trap into the OS. 
+For a system call, linux needs to trap into the OS. Thus, there is a heavier cost for a system call as opposed to a user call.  The same registers are pushed onto the stack as a user call.  But there also needs to be some sort of interrupt that happens and an elevation of privleges.  After the user function makes a system call,  the kernel traps into its own routine and takes over.  The kernel then figures out which system call to route to and saves all relevant user state so when it is done, it can transfer control flow back to the user process.  Within the system call itself will copy any releveant user data to its own address space and perform its operation.  After the work is finished, the kernel transfers control flow back to the user process.
+
+The system call is much more expensive than a normal function call because of the elevation of privleges.  Not to mention, there is more copying of data from user space to kernel space and back again.  And there is more state to save.
+
+In the case of a system call, there is more overhead in the operating system than hardware.  As far as hardware is concerned, the CPU will most likely have to fetch the procedure from kernel's address space when it needs to be loaded.  Since system calls happen fairly often, a lot of the instruction data will most likely already be in cache.  But this cost is very similar to a procedure in user space.  It is just in a different place in memory.  Thus, the hardware cost is the base from a user function call - 37 clock cycles.
+
+However, there is a greater cost to the OS here.  In my case, I will measure \textit{getpid()}.  There are at least seven different stages enumerated for this system call.  For each stage, I added an estimate.
+
+
+
+\begin{tabular}{ |l|l| }
+  \hline
+  \multicolumn{2}{|c|}{OS Cost} \\
+  \hline
+  10 & User state is saved \\
+  20 & Elevation of privleges \\
+  10 & System function called \\
+  10 & Any user data that is needed is copied into kernel space with correct privleges \\
+  20 & System call executes \\
+  10 & Execution is restored to user \\
+  \hline
+  80 & total \\
+  \hline
+\end{tabular}
+
+
+In all, I estimate about 100 clock cycles will happen just for the operating system part of the system call.  Adding to the hardware cost, I estimate that a system call will take about 117 clock cycles.
+
+\subsubsection{Measurement}
+
+This measurement is the first measurement where I was somewhat dramatically different than the estimation.  In fact, other than the very first call, which took 2427 clock cycles, the average call was a measly 42 clock cycles.  The minimum was 36!  This cost is barely above the user call.  One reason for this large disparity is most likely the efficiency of \textit{getpid()} itself.  The function does not probably take as long to execute at all.  It probably just looks up the address of the calling process in some memory mapped table.  Also, the transfer from user to kernel and back again is much faster than I had assumed.  Again, the address of the procedure must be executed right after the elevation of privleges.  And since no substantial user data needs to be copied, \textit{getpid()} is fairly efficient.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | p{5cm} |}
+    \hline
+    Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
+    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+The following statistical metrics are here.  Notice the cost of the initial call.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l |}
+    \hline
+    No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
+    1000 iterations & 45 cycles & 45 cycles & 371 cyles & 35.0 cyles & 2.68 cycles \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+
+
+
+
 
 
 %%% End document
