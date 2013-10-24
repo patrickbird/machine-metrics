@@ -356,5 +356,46 @@ The various statistical metrics for these measurements can be found below.  One 
     \end{tabular}
 \end{center}
 
+\subsection{Context Switching}
+
+\subsubsection{Estimation}
+
+The cost for a context switch involves swapping one process or thread out for another.  For processes, the OS needs to manage the synchronization of the processes.  Each OS has its own algorithm for doing so.  Priority and equity rule in this domain.  Just like we saw in the last measurement, the hardware cost for context switching will most likely be driven by the memory/disk cost again.  For instance, if a thread or a process needs to be swapped out, the instructions for the process need to be loaded into the CPU.  If it is a new task, it will most likely have to be retrieved from main memory.
+
+Here, I estimate that thread context switching will be more streamlined than processes because of how threads share memory with one another.  My implementation for measuring the signalling was as follows.  STDIN and STDOUT are opened at the beginning of the  \textit{MeasureForkContextSwitch()} function.  The current process is then forked.  The parent process closes STDIN and call \textit{pause()} to wait for a user signal from its child process.  The child process on the other hand, when started, will close STDOUT, retrieve the timestamp and signal to its parent process.  After signalling, it writes the timestamp to its parent through the pipe.
+
+My implementation for measuring pthread context switching is as follows.  A pthread is created by the main thread.  After creating the thread, the main thread waits on a condition variable.  When the pthread starts, it reads the time stamp value and signals the condition variable.  In the pthread's exit function, it returns the timestamp.  The main thread wakes up when its condition variable and then reads its timestamp.  Afterwards, it joins the other thread and calculates the difference.
+
+The hardware estimate for processes depends on the memory involved and what needs to be swapped in and out.  Threads will be able to leverage more shared memory and not have to swap in and out as often as threads will.  Thus, the hardware estimate for process context switching will most likely be lower than the previous measurement since some of the data will probably be cached.  Thus, my estimate is half of the previous measurement's average which is about 140,000 clock cycles.  The operating system measurement is neglible compared to the hardware.  Thus, the OS estimate will be 10,000 clock cycles.  The total is 150,000 clock cycles.
+
+For threads, the estimate will be lower since it leverages shared memory.  The average from the last measurement is about 35,000 clock cycles.  Thus, I will halve this one as well for memory hardware overhead.  The operating system is not as drastic.  It is involved in managing the condition variable and mutex.  Also, it is responsible for joining the two threads.  Not to mention, the operating system needs to swap one thread into its thread manager and swap the other one out.  The logic involved here might take 10,000 clock cycles.  In all, I estimate that the context switch will take about 45,000 clock cycles.
+
+\subsubsection{Measurement}
+
+The context switching was faster in both cases.  This discrepency is probably due to the fact that the processor was able to cache more of the instructions and data in cache than estimated, which in turn led to less swapping.  Also, the thread management overhead could be more efficient than previously estimated.  The thread context switching is actually extremely efficient compared to the process switching.  Again, this is mainly due to the fact that the threads share the same memory space.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l |}
+    \hline
+    Type & Hardware Estimate & Software Estimate & Total Estimate & Average Measurement \\      \hline
+    Process & 140,000 cycles & 10,000 cycles & 150,000 cyles & 82,674 cycles (41 us) \\ 
+    Thread & 35,000 cycle & 10,000 cycles & 45,000 cycles & 3114 cycles (1.6 us) \\
+    \hline
+    \end{tabular}
+\end{center}
+
+The statistical metrics for the various context switching are as follows.  Again, because memory swapping is involved and the TLB needs to be flushed whenever there is a context switch, there is huge variance in the measurements.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l |}
+    \hline
+    No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
+    1000 iterations & 4,878,939 cycles & 69,176 cycles & 165,570 cyles & 82,674 cyles & 151,883  cycles \\ 
+    1000 iterations & 14,667 cycles & 2616 cycles & 19,316 cyles & 3114 cyles & 858 cycles \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+
 %%% End document
 \end{document}
