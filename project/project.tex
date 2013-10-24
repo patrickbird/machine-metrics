@@ -113,7 +113,7 @@ The operating system is 64-bit CentOS v6.4, kernel version v2.6.32-358.11.1.
 \section{Operations}
 This section will describe various operations that I estimated performance, how I came to those estimates, and how I performed measurements to measure these operations.  To begin with, this system is not a single RISC processor.  Unfortunatley for my current purposes, but to my computer's delight, there is not a one to one mapping between instructions and clock cycles.  At least for the first few operations, I couldn't merely just count up the instructions and add a little for overhead.
 
-As I mentioned in section 2, these processsors have multi-cores three levels of cache, around a 17-20 stage pipeline, an interprocessor communication mechanism.  Needless to say, estimating any sort of operation is difficult without an exhaustive knowledge of the internals of the processor and the system.
+As I mentioned in Section 2, these processsors have multi-cores three levels of cache, around a 17-20 stage pipeline, an interprocessor communication mechanism.  Needless to say, estimating any sort of operation is difficult without an exhaustive knowledge of the internals of the processor and the system.
 
 Since there are so many variables in the system, I wanted to set out and eliminate as many as I could before I started to measure.  For one, I wanted to bind this measurement process to a particular processor.  If my process was interrupted and switched out to a different one, I wanted to ensure that the clock that I read every time was from the same processor.
 
@@ -121,55 +121,48 @@ Thus, one of the first things that my process does upon startup is to set proces
 
 My next goal was to elevate the priority of the process to limit context switching as much as possible.  Obviously, I wouldn't have full control over how much CPU bandwidth I could use.  Again, there is a POSIX procedure for setting the priority - \textit{setpriority}.  This process is elevated to the minimum nice value, which is the highest priority.  At this point in time, it is -20.
 
-\begin{align} 
-	\begin{split}
-	(x+y)^3 	&= (x+y)^2(x+y)\\
-					&=(x^2+2xy+y^2)(x+y)\\
-					&=(x^3+2x^2y+xy^2) + (x^2y+2xy^2+y^3)\\
-					&=x^3+3x^2y+3xy^2+y^3
-	\end{split}					
-\end{align}
-Phasellus viverra nulla ut metus varius laoreet. Quisque rutrum. Aenean imperdiet. Etiam ultricies nisi vel augue. Curabitur ullamcorper ultricies 
+Both of these decisions did not come easily.  The main drawback was that the typical use case would be eliminated, at least for the time being.  When performing measurements, it is good to know what the measurement would be for typical scenearios instead of highly optimized ones.  However, what caused me to decide to bind to a processor and elevate the process' priority was again the effort to eliminate as many variables as I could.  My reasoning was that these variables can always be reintroduced later if they needed to be measured.
 
-\subsection{Heading on level 2 (subsection)}
-Lorem ipsum dolor sit amet, consectetuer adipiscing elit. 
-\begin{align}
-	A = 
-	\begin{bmatrix}
-	A_{11} & A_{21} \\
-  	A_{21} & A_{22}
-	\end{bmatrix}
-\end{align}
-Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem.
+All the measurements are in clock cycles.  However, a simple formula exists to calculate the time that operation took:
 
-\subsubsection{Heading on level 3 (subsubsection)}
-Nulla consequat massa quis enim. Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu. In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. Nullam dictum felis eu pede mollis pretium. Integer tincidunt. Cras dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend tellus. Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim.
+INSERT HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-\paragraph{Heading on level 4 (paragraph)}
-Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem. Nulla consequat massa quis enim. 
+\subsection{Measurement Overhead}
+
+How time is measured for performance metrics such as this paper is one of the more fundamental mechanisms.  Every measurement will be built on how time is measured.  And since the system is incredibly complex, measuring time is a difficult process.  One of the first decisions that needed to be made was whether to count clock cycles or to measure time through some sort of native timestamp.
+
+At least to begin with, some of the operations were quite small which warranted the granularity of the clock cycle.  Any library call that would get the calendar time would need to have some extra code to translate the real time clock to a data structure.  This translation would add yet another cost to understanding the true overhead of the system.
+
+Thus, \textbf{RDTSC} seemed to be the operation to go.  It is one instruction on this chipset, which would read the real time clock of the CPU.  And it is not a privleged call, so there is no overhead in reading it.  However, as I read more about the instruction and the CPU, I understood that the CPU is out of order processor.  Thus, there is no guaranteee when a certain instruction will execute.  To put it in other words, one cannot just look at the assembly and trust that the processor will execute it sequentially.  This processor has almost twenty stages in its pipeline.
+
+Thus, there needed to be a way to serialize the calls, or create an instruction barrier.  \textbf{CPUID} seemed to be a favorite instruction to call right before \textbf{RDTSC} since it is a serializing call.  Unfortunately, this instruction comes with somewhat of a performance penalty.  Thankfully, I came across \textbf{RDTSCP}, which is a serializing \textbf{RDTSC} call.
+
+\subsubsection{Estimation}
+
+After the small routine to read the clock is loaded into cache, there is not much hardware interaction other than the CPU itself.  Since this is the case, a hardware estimation includes examining the software routine for performance.  There are fifteen assembly instructions in the \textit{GetRdtscp()} procedure with another four instructions for calling and returning.  In all, there about twenty instructions.  Accounting for 20% overhead, my hardware estimation is 24 clock cycles.
+
+The operating system does not add much overhead in this operation.  After the instructions are loaded from memory, the instructions will most likely stay in cache.  Thus, another 20% overhead will be accounted for random context switching.  Thus, the overall estimation time is around 30 clock cycles.
+
+After running the experiment a 1000 times, I get the following results:
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | p{5cm} |}
+    \hline
+    Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
+    24 cycles & 5 cycles & 30 cyles & 35 cyles \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | p{5cm} |}
+    \hline
+    First iteration & Min & Max & Mean & Std Dev & Sample Count \\ \hline
+    48 cycles & 30 cycles & 41 cyles @ 23rd iteration & 35.43 cyles & 2.85 cycles & 1000 iterations \\ 
+    \hline
+    \end{tabular}
+\end{center}
 
 
-\section{Lists}
-
-\subsection{Example for list (3*itemize)}
-\begin{itemize}
-	\item First item in a list 
-		\begin{itemize}
-		\item First item in a list 
-			\begin{itemize}
-			\item First item in a list 
-			\item Second item in a list 
-			\end{itemize}
-		\item Second item in a list 
-		\end{itemize}
-	\item Second item in a list 
-\end{itemize}
-
-\subsection{Example for list (enumerate)}
-\begin{enumerate}
-	\item First item in a list 
-	\item Second item in a list 
-	\item Third item in a list
-\end{enumerate}
 %%% End document
 \end{document}
