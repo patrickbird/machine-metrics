@@ -56,6 +56,8 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
 
 static int _dummy;
 
+static pthread_mutex_t mutex;
+
 static void UpdateMetric(enum MEASUREMENT measurement, int index);
 static void UpdateMeasurementCalculations(enum MEASUREMENT measurement);
 static inline void GetRdtscpValue(unsigned int * low, unsigned int * high);
@@ -105,6 +107,8 @@ extern void InitializeMetrics(int sampleCount)
         _metrics[i].Arguments = calloc(1, sizeof(int));
         _metrics[i].Arguments[0] = i;
     }
+
+    pthread_mutex_init(&mutex, NULL);
 }
 
 extern void FinalizeMetrics(void)
@@ -423,6 +427,39 @@ static void * DoStuff(void * arguments)
     return NULL;
 }
 
+
+static void * FirstThread(void * arguments)
+{
+    unsigned int low, high;
+    uint64_t *  value;
+
+    pthread_mutex_lock(&mutex);
+
+    GetRdtscpValue(&low, &high);
+
+    pthread_mutex_unlock(&mutex);
+
+    value = calloc(1, sizeof(uint64_t));
+    value[0] = GetUint64Value(low, high);
+
+    pthread_exit(value);
+}
+
+static void * SecondThread(void * arguments)
+{
+    unsigned int low, high;
+    uint64_t * value;
+
+    pthread_mutex_lock(&mutex);
+
+    GetRdtscpValue(&low, &high);
+
+    value = calloc(1, sizeof(uint64_t));
+    value[0] = GetUint64Value(low, high);
+
+    pthread_exit(value);
+}
+
 static uint64_t MeasurePthread(int * arguments)
 {
     int retValue;
@@ -436,6 +473,27 @@ static uint64_t MeasurePthread(int * arguments)
     GetRdtscpValue(&low2, &high2);
     
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static uint64_t MeasurePthreadContextSwitch(int * arguments)
+{
+    int retValue;
+    pthread_t thread1, thread2;
+    uint64_t * time1;
+    uint64_t * time2;
+    uint64_t difference;
+
+    retValue = pthread_create(&thread1, NULL, FirstThread, NULL);
+    retValue = pthread_create(&thread2, NULL, SecondThread, NULL);
+
+    pthread_join(thread1, (void**)&time1);
+    pthread_join(thread2, (void**)&time2);
+
+    difference = *time2 - *time1;
+    free(time1);
+    free(time2);
+
+    return difference;    
 }
 
 static void HandleSigusr1(int signal)
@@ -487,4 +545,5 @@ static uint64_t MeasureForkContextSwitch(int * arguments)
         return GetUint64Value(low2, high2) - startTime;
     }
 }
+
 
