@@ -36,7 +36,8 @@
 \usepackage{amsmath,amsfonts,amsthm} % Math packages
 \usepackage[pdftex]{graphicx}   
 \usepackage{url}
-
+\usepackage{pstricks-add}
+\usepackage{pgfplots}
 
 %%% Custom sectioning
 \usepackage{sectsty}
@@ -86,34 +87,32 @@
 \begin{document}
 \maketitle
 \section{Introduction}
-Over the last decade, an increasing number of services are transitioning to the cloud to leverage some of its power.  Pre-configured virtual machines and unlimited object storage attract many a company.  Many of these services attract companies who do not want to invest time and money into supporting infrastructure that is not in their area of specialty.
+Over the last decade, an increasing number of services are transitioning to the cloud to leverage some of its power.  Pre-configured virtual machines and unlimited object storage attract many an organization.  Many of these services attract companies who do not want to invest time and money into supporting infrastructure that is not in their area of specialty.
 
-The area of big data is also an interest to many.  Many organizations and instutions are amassing large datasets that is challenging on one hand since there is much potential to learn new connections between data that wasn't known before.  But it is also crippling from not knowing where to start analyzing and drawing connections.
+The area of big data is also an interest to many.  Many organizations and instutions are amassing large datasets that is challenging on one hand and frightening on another.  It's exciting since there is much potential to learn new connections between data that wasn't known before.  But it is also crippling from not knowing where to start analyzing and drawing connections.
 
-With both cloud technology and big data, the infrastructure is crtical for maintaining a robust platform to explore these two areas of technology.  The institution where I work in is involved in these two areas and that is what has motivated me to understand and characterize a system.
+With both cloud technology and big data as dominant technological forces, the infrastructure is crtical for maintaining a robust platform to explore these two areas of technology.  The institution where I work in is involved in these two areas and that is what has motivated me to understand and characterize a portion of that system.
 
-The current project that I work on, basespace.com, leverages Amazon AWS services such as EC2, S3, SQS, and more.  And since our product is mainly the analysis of genomic data, the need for high throughput of both data, compute, and parallelism is needed.  Many of our analyses can take several hours to compute.  This timespan may seem acceptable, but as genomics and the clinical lab converge, speed will be critical for diagnosing health issues.  Any savings in time could, without sounding too cliche, save a life.
+The current work project that I work on, basespace.com, leverages Amazon AWS services such as EC2, S3, SQS, and more.  And since our product is mainly the analysis of genomic data, the need for high throughput of data, compute, and parallelism is needed.  Many of our data analyses can take several hours to compute.  This timespan may seem acceptable, but as genomics and the clinical lab converge, speed will be critical for diagnosing health issues.
 
-Focusing on cloud computing, I wanted to characterize a local, high-performance bare-metal compute node.  Although outside the scope of this paper, I would eventually like to extend the study to actual VMs on these compute nodes and to compare their performance with the bare metal.  For instance, how does an 8 VCPU VM with 64 GB of memory compare with its bare-metal constituents.  What would be the cost of virtualization?
+Focusing on cloud computing, I wanted to characterize a local, high-performance bare-metal compute node.  Although outside the scope of this paper, I would eventually like to extend the study to actual VMs on these compute nodes and to compare their performance with the bare metal.  For instance, how does an 8 VCPU virtual machine with 64 GB of memory compare with its bare-metal constituents.  What would be the cost of virtualization?
 
 Since this study involves high performance time measurement, I wanted to get as close as I could to the hardware without writing the whole thing in assembly.  Not to mention, the node runs CentOS linux, and knowing that GCC and the standard POSIX C headers were readily available, no other languages were really considered.  No special compiler options were really used either.  The only options I needed to provide were to link in math libraries for calculating the square root and for using pthreads.
 
-So far, I have invested about 25 hours into this project thus far.  I alone have done all the work in both research, code implementation and the production of this paper.
+So far, I have invested about 30 hours into this project thus far.  I alone have done all the work in both research, code implementation, and the production of this paper.
 
 \section{Machine Description}
 
-The system has two processors, with each having six cores that are hyperthreaded.  This information was called from /proc/cpuinfo and matched with the information from Intel's website.  The processors are Intel Xeon E5-2620 that run at 2000.053 MHz to be exact.  There are three levels of cache - 32 KB of L1 each for data and instructions, 256 KB of L2 (both), and 15360 KB of L3 (both).  
+The system has two processors, with each having six cores that are hyperthreaded.  This information was called from /proc/cpuinfo and matched with the information from Intel's website.  The processors are Intel Xeon E5-2620 that run at 2000.053 MHz to be exact.  There are three levels of cache - 32 KB of L1 each for data and instructions, 256 KB of L2 (both), and 15,360 KB of L3 (both).  The instruction pipeline is anywhere from 17 to 20 stages.
 
 The memory size is 128 GB of DDR3 RAM.  The potential speed is 1600 MHZ, however, the configurable clock speed is set to 1333 MHz.  The processor is setup so that it can utilize four memory channels with the RAM.  The more channels it has, the greater opportunity the processor has for read and write parallelism.  This information was found by the dmidecode command.
 
-The network card is full duplex gigabit ethernet.
-
-The operating system is 64-bit CentOS v6.4, kernel version v2.6.32-358.11.1.
+The hard disk is a 1 TB hard disk drive at 7200 RPM.  The network card is full duplex gigabit ethernet.  The operating system is 64-bit CentOS v6.4, kernel version v2.6.32-358.11.1.
 
 \section{Operations}
-This section will describe various operations that I estimated performance, how I came to those estimates, and how I performed measurements to measure these operations.  To begin with, this system is not a single RISC processor.  Unfortunatley for my current purposes, but to my computer's delight, there is not a one to one mapping between instructions and clock cycles.  At least for the first few operations, I couldn't merely just count up the instructions and add a little for overhead.
+This section will describe various machine operations, how I estimated performance on them, and how I performed measurements to measure these operations and their corresponding results.  To begin with, this system is not a single RISC processor.  Unfortunatley for my current purposes, but to my computer's delight, there is not a one to one mapping between instructions and clock cycles.  At least for the first few operations, I couldn't merely just count up the instructions and add a little for overhead.
 
-As I mentioned in Section 2, these processsors have multi-cores three levels of cache, around a 17-20 stage pipeline, an interprocessor communication mechanism.  Needless to say, estimating any sort of operation is difficult without an exhaustive knowledge of the internals of the processor and the system.
+As I mentioned in Section 2, these processsors have multi-cores three levels of cache, and a 17-20 stage pipeline, with an interprocessor communication mechanism.  Needless to say, estimating any sort of operation is difficult without an exhaustive knowledge of the internals of the processor and the system.  And even then, the estimation would still only be a ballpark figure.
 
 Since there are so many variables in the system, I wanted to set out and eliminate as many as I could before I started to measure.  For one, I wanted to bind this measurement process to a particular processor.  If my process was interrupted and switched out to a different one, I wanted to ensure that the clock that I read every time was from the same processor.
 
@@ -125,7 +124,10 @@ Both of these decisions did not come easily.  The main drawback was that the typ
 
 All the measurements are in clock cycles.  However, a simple formula exists to calculate the time that operation took:
 
-INSERT HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+\begin{gather}
+time(s)=cycles/2,000,000,000 Hz
+\end{gather}
+
 
 \subsection{Measurement Overhead}
 
@@ -148,10 +150,10 @@ The operating system does not add much overhead in this operation.  After the in
 After running the experiment a 1000 times, I get the following results:
 
 \begin{center}
-    \begin{tabular}{ | l | l | l | p{5cm} |}
+    \begin{tabular}{ | l | l | l | l |}
     \hline
     Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
-    24 cycles & 5 cycles & 30 cyles & 35 cyles (18 ns) \\ 
+    24 cycles & 5 cycles & 30 cycles & 35 cycles (18 ns) \\ 
     \hline
     \end{tabular}
 \end{center}
@@ -177,28 +179,28 @@ For one, in all my measurements, I want to observe the cost of the CPU fetching 
 
 \subsubsection{Estimation}
 
-Adding a loop construct to the measurement routine does not introduce a heavy burden.  In reality, it is just a few more instructions to add to the measurement routine.  ANd since it is a loop, there is pointer arithemetic that needs to happen to store the clock value.  Again there is no significant operating system cost to account for, so the entire extra cost for a loop routine will fall in the hardware domain.  Using the average cost from the RDTSCP routine, I estimate that the cost for a loop will be an extra ten cycles based upon the additional hardware instructions or 38 clock cycles (19 ns).
+Adding a loop construct to the measurement routine does not introduce a heavy burden.  In reality, it is just a few more instructions to add to the measurement routine.  And since it is a loop, there is pointer arithemetic that needs to happen to store the clock value.  Again there is no significant operating system cost to account for, so the entire extra cost for a loop routine will fall in the hardware domain.  Using the average cost from the RDTSCP routine, I estimate that the cost for a loop will be an extra ten cycles based upon the additional hardware instructions or 38 clock cycles (19 ns).
 
 \subsubsection{Measurement}
 
 After running the experiment a 1000 times, I observe the following results:
 
 \begin{center}
-    \begin{tabular}{ | l | l | l | p{5cm} |}
+    \begin{tabular}{ | l | l | l | l |}
     \hline
     Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
-    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\ 
+    33 cycles & 5 cycles & 38 cycles & 47 cycles (24 ns) \\ 
     \hline
     \end{tabular}
 \end{center}
 
-The estimate was actually very close to the actual answer which is very pleasing.  Though, trying to estimate this routine from scratch would have been much more difficult.  Since I had the convienence of the previous metric, my estimate was able to be close to the measure value value.
+The estimate was actually very close to the actual answer which is very pleasing.  Though, trying to estimate this routine from scratch would have been much more difficult.  Since I had the convienence of the previous metric, my estimate was able to be close to the measured value.
 
 \begin{center}
     \begin{tabular}{ | l | l | l | l | l | l |}
     \hline
     No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
-    1000 iterations & 45 cycles & 45 cycles & 371 cyles & 35.0 cyles & 2.68 cycles \\ 
+    1000 iterations & 45 cycles & 45 cycles & 371 cycles & 35.0 cycles & 2.68 cycles \\ 
     \hline
     \end{tabular}
 \end{center}
@@ -209,21 +211,28 @@ The estimate was actually very close to the actual answer which is very pleasing
 
 The cost of calling a procedure will most likely be on par with the loop construct.  In the loop construct, there is a branch, an update to a register value, and pointer arithmetic for both the lower and upper 32 bits of the clock value.  For a procedure, it will be pushing and popping registers off the stack.  Obviously, the greater number of arguments, the greater number of registers that need to be pushed and popped.
 
-For zero arguments, there is almost no cost to calling a function other than pushing the return address and the call instruction itself.  For one argument, a register needs to be pushed, and the stack pointer needs to be adjusted.   F  Also, there is the call instruction. Then, for every variable, an additional register is pushed onto the stack.  Thus, we can use the equation
+For zero arguments, there is almost no cost to calling a function other than pushing the return address and the call instruction itself.  For one argument, a register needs to be pushed, and the stack pointer needs to be adjusted.   Also, there is the call instruction. Then, for every variable, an additional register is pushed onto the stack.  Thus, we can use the equation
 
-extra cycles = RDTSCP + 2 (zero arguments) + 2n (arithmetic and register) 
+\begin{align}
+clocks& =RDTSCP + 2 + 2n\\
+clocks& =2n + 37
+\end{align}
 
-extra cycle = 37 + 2n
+Here is a graph of clock cycles against number of arguments.
 
-Again, the cost of the operating system is neglible since the CPU is mainly just executing instructions from its local cache.  Thus, plugging in the values from the RDTSCP function, we get the following table:
-
-37
-39
-41
-43
-45
-47
-49
+\begin{center}
+\begin{tikzpicture}
+  \begin{axis}[ 
+    xmin=-1, xmax=10,
+    ymin=30, ymax=50,
+    xlabel=$num of arguments$,
+    ylabel={$clock cycles$},
+    axis on top=true
+  ] 
+    \addplot {2*x + 37}; 
+  \end{axis}
+\end{tikzpicture}
+\end{center}
 
 In the C routines themselves, I ensured that the arguments were being referenced so the compiler would not try to optimize them away.
 
@@ -232,16 +241,16 @@ In the C routines themselves, I ensured that the arguments were being referenced
 Again, stepping on the shoulders of the RDTSCP measurement has been beneficial.  The measurements are within the bounds of my estimation.
 
 \begin{center}
-    \begin{tabular}{ | l | l | l | p{5cm} |}
+    \begin{tabular}{ | l| l | l | l | l |}
     \hline
-    Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
-    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\ \hline
-    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\  \hline
-    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\  \hline
-    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\  \hline
-    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\  \hline
-    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\  \hline
-    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\ 
+    Argument Count & Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
+    0 & 37 cycles & 5 cycles & 43 cycles & 37 cycles (24 ns) \\ \hline
+    1 & 39 cycles & 5 cycles & 44 cycles & 38 cycles (24 ns) \\  \hline
+    2 & 41 cycles & 5 cycles & 46 cycles & 40 cycles (24 ns) \\  \hline
+    3 & 43 cycles & 5 cycles & 48 cycles & 40 cycles (24 ns) \\  \hline
+    4 & 45 cycles & 5 cycles & 50 cycles & 41 cycles (24 ns) \\  \hline
+    5 & 47 cycles & 5 cycles & 52 cycles & 40 cycles (24 ns) \\  \hline
+    6 & 49 cycles & 5 cycles & 54 cycles & 42 cycles (24 ns) \\ 
     \hline
     \end{tabular}
 \end{center}
@@ -251,10 +260,17 @@ It is interesting to note that functions with two, three, four, and six argument
 The various metrics for the different function calls are enumerated here:
 
 \begin{center}
-    \begin{tabular}{ | l | l | l | l | l | l |}
+    \begin{tabular}{ | l | l | l | l | l | l | l |}
     \hline
-    No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
-    1000 iterations & 45 cycles & 45 cycles & 371 cyles & 35.0 cyles & 2.68 cycles \\ 
+    Arg COunt & No. of Samples & First Iteration & Min & Max & Mean & Std Dev \\ \hline
+   0 & 1000 iterations & 89 cycles & 30 cycles & 44 cycles & 37.0 cycles & 4.14 cycles \\ 
+    1 &    1000 iterations & 65 cycles & 30 cycles & 44 cycles & 38.0 cycles & 3.2 cycles \\ 
+     2 &       1000 iterations & 142 cycles & 33 cycles & 44 cycles & 41.0 cycles & 4.40 cycles \\ 
+       3 &         1000 iterations & 68 cycles & 33 cycles & 47 cycles & 40.4 cycles & 3.11 cycles \\ 
+        4 &            1000 iterations & 137 cycles & 33 cycles & 47 cycles & 40.9 cycles & 4.23 cycles \\ 
+          5 &              1000 iterations & 145 cycles & 36 cycles & 47 cycles & 41.3 cycles & 4.25 cycles \\ 
+             6 &               1000 iterations & 68 cycles & 36 cycles & 181 cycles & 40.78 cycles & 5.87 cycles \\ 
+              7 &                  1000 iterations & 68 cycles & 36 cycles & 181 cycles & 42.64 cycles & 2.81 cycles \\ 
     \hline
     \end{tabular}
 \end{center}
@@ -277,14 +293,14 @@ However, there is a greater cost to the OS here.  In my case, I will measure \te
   \hline
   \multicolumn{2}{|c|}{OS Cost} \\
   \hline
-  10 & User state is saved \\
-  20 & Elevation of privleges \\
-  10 & System function called \\
-  10 & Any user data that is needed is copied into kernel space with correct privleges \\
-  20 & System call executes \\
-  10 & Execution is restored to user \\
+  10 cycles & User state is saved \\
+  20 cycles& Elevation of privleges \\
+  10 cycles& System function called \\
+  10 cycles& Any user data that is needed is copied into kernel space with correct privleges \\
+  20 cycles& System call executes \\
+  10 cycles& Execution is restored to user \\
   \hline
-  80 & total \\
+  80 cycles& total \\
   \hline
 \end{tabular}
 
@@ -296,10 +312,10 @@ In all, I estimate about 100 clock cycles will happen just for the operating sys
 This measurement is the first measurement where I was somewhat dramatically different than the estimation.  In fact, other than the very first call, which took 2427 clock cycles, the average call was a measly 42 clock cycles.  The minimum was 36!  This cost is barely above the user call.  One reason for this large disparity is most likely the efficiency of \textit{getpid()} itself.  The function does not probably take as long to execute at all.  It probably just looks up the address of the calling process in some memory mapped table.  Also, the transfer from user to kernel and back again is much faster than I had assumed.  Again, the address of the procedure must be executed right after the elevation of privleges.  And since no substantial user data needs to be copied, \textit{getpid()} is fairly efficient.
 
 \begin{center}
-    \begin{tabular}{ | l | l | l | p{5cm} |}
+    \begin{tabular}{ | l | l | l | l |}
     \hline
     Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
-    37 cycles & 100 cycles & 137 cyles & 42 cyles (21 ns) \\ 
+    37 cycles & 100 cycles & 137 cycles & 42 cycles (21 ns) \\ 
     \hline
     \end{tabular}
 \end{center}
@@ -310,7 +326,7 @@ The following statistical metrics are here.  Notice the cost of the initial call
     \begin{tabular}{ | l | l | l | l | l | l |}
     \hline
     No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
-    1000 iterations & 2427 cycles & 36 cycles & 83 cyles & 42.41 cyles & 75.51 cycles \\ 
+    1000 iterations & 2427 cycles & 36 cycles & 83 cycles & 42.41 cycles & 75.51 cycles \\ 
     \hline
     \end{tabular}
 \end{center}
@@ -338,8 +354,8 @@ Again, the estimates were off by a good bit for processes.  The estimate for thr
     \begin{tabular}{ | l | l | l | l | l |}
     \hline
     Type & Hardware Estimate & Software Estimate & Total Estimate & Average Measurement \\      \hline
-    Process & 50000 cycles & 20000 cycles & 70000 cyles & 277758 cyles (139 us) \\ 
-    Thread & 10000 cycle & 10000 cycles & 20000 cycles & 35443 cycles (18 us) \\
+    Process & 50,000 cycles & 20,000 cycles & 70,000 cyles & 277,758 cyles (139 us) \\ 
+    Thread & 10,000 cycle & 10,000 cycles & 20,000 cycles & 35,443 cycles (18 us) \\
     \hline
     \end{tabular}
 \end{center}
@@ -349,9 +365,9 @@ The various statistical metrics for these measurements can be found below.  One 
 \begin{center}
     \begin{tabular}{ | l | l | l | l | l | l |}
     \hline
-    No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
-    1000 iterations & 182993 cycles & 83727 cycles & 41948421 cyles & 277758 cyles & 2184639  cycles \\ 
-    1000 iterations & 87111 cycles & 19804 cycles & 5901437 cyles & 35443 cyles & 197039 cycles \\ 
+    No. of Samples & 1st Iteration & Min & Max & Mean & Std Dev \\ \hline
+    1000 iterations & 182,993 cycles & 83,727 cycles & 41,948,421 cyles & 277,758 cyles & 2,184,639 cycles \\ 
+    1000 iterations & 87111 cycles & 19,804 cycles & 5,901,437 cyles & 35,443 cyles & 197,039 cycles \\ 
     \hline
     \end{tabular}
 \end{center}
@@ -389,7 +405,7 @@ The statistical metrics for the various context switching are as follows.  Again
 \begin{center}
     \begin{tabular}{ | l | l | l | l | l | l |}
     \hline
-    No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
+    No. of Samples & First Iteration & Min & Max & Mean & Std Dev \\ \hline
     1000 iterations & 4,878,939 cycles & 69,176 cycles & 165,570 cyles & 82,674 cyles & 151,883  cycles \\ 
     1000 iterations & 14,667 cycles & 2616 cycles & 19,316 cyles & 3114 cyles & 858 cycles \\ 
     \hline
