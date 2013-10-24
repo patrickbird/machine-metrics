@@ -1,9 +1,11 @@
 #define _GNU_SOURCE
 
+#include <fcntl.h>
 #include <limits.h>
 #include <math.h>
 #include <pthread.h>
 #include <sched.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -436,28 +438,53 @@ static uint64_t MeasurePthread(int * arguments)
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
+static void HandleSigusr1(int signal)
+{
+    return;
+}
+
 static uint64_t MeasureForkContextSwitch(int * arguments)
 {
     pid_t pid, parentPid;
     unsigned int low1, high1, low2, high2;
-    
+    int desc[2];
+
+    pipe(desc);
+
+    parentPid = getpid(); 
     pid = fork();
 
     if (pid == 0)
-    {
+    {   
+        int retValue;
+        int descriptor;
+        uint64_t startTime;
+
+        close(desc[0]);
         GetRdtscpValue(&low1, &high1);
+        startTime = GetUint64Value(low1, high1);
+        
+        retValue = kill(parentPid, SIGUSR1);
 
-        kill(parentPid, 1)
+        write(desc[1], &startTime, sizeof(startTime));
 
-        exit(0);
+        exit(retValue);
     }
     else
     {
-        parentPid = pid;
-        pause();
-        GetRdtscpValue(&low2, &high2);
-    }
+        int descriptor;
+        uint64_t startTime;
 
-    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+        close(desc[1]);
+
+        signal(SIGUSR1, HandleSigusr1);
+        pause();
+       
+        GetRdtscpValue(&low2, &high2);
+    
+        read(desc[0], &startTime, sizeof(startTime));
+        
+        return GetUint64Value(low2, high2) - startTime;
+    }
 }
 
