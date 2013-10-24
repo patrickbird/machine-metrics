@@ -316,10 +316,32 @@ The following statistical metrics are here.  Notice the cost of the initial call
 \end{center}
 
 
+\subsection{Task Creation}
 
+\subsubsection{Estimation}
 
+For task creation, there are two main different implementations to take advantage of in linux - processes and pthreads.  The former is invoked using \textit{fork()} where a new process will be created by its parent.  And the two will continue to share memory until a copy-on-write occurs.  This happens whenever one of the processes writes to a shared variable.  Now each process will have its own copy.
 
+A pthread on the other hand uses the \textit{pthread\_create()} function.  Here, there are two threads that share the same memory.  Synchronization is done with atomic shared memory objects like mutexs and condition variables.
 
+The hardware cost for forking a process will mostly be driven by any memory that needs to be copied from the parent to the child.  And it also involves updating any of the parent's address space.  Thus, the cost of creating a new address space for the child is the most significant cost.  Updating several of pages might take a good tens of thousands of clock cycles since the TLBs and cache need to be updated and the permissions need to be copied appropriately.  The cost of hardware is estimated to be 50,000 clock cycles.
+
+From an operating system perspective, the kernel needs to create the process, assign it a new ID, and initiate the copying of any data.  After copying the data, it needs to initiate any updates in the parent.  This management could take a bit of time especially if it is blocked by hardware.  The relative cost of these operations is set at 5000 clock cycles.
+
+As far as 
+
+\begin{tabular}{ |l|l| }
+  \hline
+  \multicolumn{2}{|c|}{OS Cost} \\
+  \hline
+  100 & Process created \\
+  300 & Copy of descriptors \\
+  \hline
+  200 & total \\
+  \hline
+\end{tabular}
+
+I estimate the copy of the descriptors will take longer
 
 %%% End document
 \end{document}
