@@ -299,7 +299,7 @@ This measurement is the first measurement where I was somewhat dramatically diff
     \begin{tabular}{ | l | l | l | p{5cm} |}
     \hline
     Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
-    33 cycles & 5 cycles & 38 cyles & 47 cyles (24 ns) \\ 
+    37 cycles & 100 cycles & 137 cyles & 42 cyles (21 ns) \\ 
     \hline
     \end{tabular}
 \end{center}
@@ -310,7 +310,7 @@ The following statistical metrics are here.  Notice the cost of the initial call
     \begin{tabular}{ | l | l | l | l | l | l |}
     \hline
     No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
-    1000 iterations & 45 cycles & 45 cycles & 371 cyles & 35.0 cyles & 2.68 cycles \\ 
+    1000 iterations & 2427 cycles & 36 cycles & 83 cyles & 42.41 cyles & 75.51 cycles \\ 
     \hline
     \end{tabular}
 \end{center}
@@ -326,22 +326,35 @@ A pthread on the other hand uses the \textit{pthread\_create()} function.  Here,
 
 The hardware cost for forking a process will mostly be driven by any memory that needs to be copied from the parent to the child.  And it also involves updating any of the parent's address space.  Thus, the cost of creating a new address space for the child is the most significant cost.  Updating several of pages might take a good tens of thousands of clock cycles since the TLBs and cache need to be updated and the permissions need to be copied appropriately.  The cost of hardware is estimated to be 50,000 clock cycles.
 
-From an operating system perspective, the kernel needs to create the process, assign it a new ID, and initiate the copying of any data.  After copying the data, it needs to initiate any updates in the parent.  This management could take a bit of time especially if it is blocked by hardware.  The relative cost of these operations is set at 5000 clock cycles.
+From an operating system perspective, the kernel needs to create the process, assign it a new ID, and initiate the copying of any data.  After copying the data, it needs to initiate any updates in the parent.  This management could take a bit of time especially if it is blocked by hardware.  The relative cost of these operations is set at 20000 clock cycles.  In total, I estimate about 70000 clock cycles.
 
-As far as 
+As far as pthreads are concerned, the cost will probably not be as high since memory does not need to be copied over.  Thus, the hardware cost is probably around 10000, just in case any new memory needs to be referenced.  There is not much hardware cost since everything happens more at the kernel level.  The OS will handle the creation of the thread, checking its arguments are valid, and register a new thread at the kernel level.  Since the hardware cost is somewhat neglibile, the kernel cost will be about 10000 clock cycles. 
 
-\begin{tabular}{ |l|l| }
-  \hline
-  \multicolumn{2}{|c|}{OS Cost} \\
-  \hline
-  100 & Process created \\
-  300 & Copy of descriptors \\
-  \hline
-  200 & total \\
-  \hline
-\end{tabular}
+\subsubsection{Measurement}
 
-I estimate the copy of the descriptors will take longer
+Again, the estimates were off by a good bit for processes.  The estimate for threads were a little closer.  This discrepency has probably to do with understanding fork at the hardware level and what all that needs to be copied.  For threads, most of that is managed in software so the cost can be understood a little more.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l |}
+    \hline
+    Type & Hardware Estimate & Software Estimate & Total Estimate & Average Measurement \\      \hline
+    Process & 50000 cycles & 20000 cycles & 70000 cyles & 277758 cyles (139 us) \\ 
+    Thread & 10000 cycle & 10000 cycles & 20000 cycles & 35443 cycles (18 us) \\
+    \hline
+    \end{tabular}
+\end{center}
+
+The various statistical metrics for these measurements can be found below.  One aspect to notice is that there is a great degree of variance for these measurements.  This fact leads me to believe that memory and disk access has much to play in the cost of creating processes and threads.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l |}
+    \hline
+    No. of Samples & First Iteration & Min & Max (excluding 1st) & Mean & Standard Deviation \\ \hline
+    1000 iterations & 182993 cycles & 83727 cycles & 41948421 cyles & 277758 cyles & 2184639  cycles \\ 
+    1000 iterations & 87111 cycles & 19804 cycles & 5901437 cyles & 35443 cyles & 197039 cycles \\ 
+    \hline
+    \end{tabular}
+\end{center}
 
 %%% End document
 \end{document}
