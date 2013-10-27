@@ -1,0 +1,102 @@
+Grapevine
+---------
+
+What is grapevine?
+- distributed message and registration service
+- provides mail services, and naming and access control
+
+Perhaps the most interesting theme in Grapevine is the tradeoof between transparency and ease of design/implementation.
+
+Load balancing is important in case a machine goes down
+
+What are the two kinds of services?
+- message service
+- registration service
+
+What does the message service do?
+- delivery of messages
+- buffering messages
+
+What does the registration service do?
+- naming
+	- rnames
+	- tables that maps names to info about users, machines, services
+	- registries correspond to locations, organizations, applicatins
+- authentication
+	- user passwords
+	- think of a YP/NIS/LDAP service in unix
+- access control
+	- ACLs for files in distributed file systems
+	- Difference from NFS?
+- resource location for clients
+
+In what ways did the services depend on each other?
+- msgs: names, locations, grops from reg service
+- reg: use message service to maintain distributed registry
+
+How were clients connected to servers?
+- local ethernet
+- ARPANET
+
+How were servers connected?
+- low-bandwidth modem lines
+- frequent network outages
+
+Scale is a fundamental issue of any system.  What does it mean?
+- the cost of any computation in the system should not grow as a function of the size of the system
+- goal is easy to understand, often difficult to implement
+- up to a limit...there is a ceiling to which you need to grow
+- can afford complete info in some areas
+
+Grapevine approach:
+- scale by adding more servers of fixed power, not by using more powerful servers
+- same argument for internet services
+
+In what ways did scaling issues manifest themselves in Grapevine?
+- distribution lists
+	- membershipo of some lists grows with user population
+	- hence, tkme to deliver to list grows with user pop
+	- frequency of add/delete also grows with user pop
+	- hence, updates increase freq with growth in user pop
+
+How is transparency achieved?
+- Distribution and replication
+
+Replication
+- every user has at least two inboxes
+- registries unit of distribution, replication
+	- no server contains all registries
+	- each registry is replicated
+- GrapevineUser client library hides replication for applications
+	- does resource location based upon distribution of data and server availability
+
+In what sense is Grapevine not transparent?
+- updates are not transactions
+	- they take time to propogate through the system
+	- users can therefore see inconsistent state in the system
+
+Reality of distribution sometimes exposed
+- when deleting names, don't know all the places where a name appears
+
+Reliability of networks sometimes exposed
+- long delivery times due to slow networks
+- makes users wonder whether a message was actually delivered
+- administrators have to understand consequences of some actions
+	- e.g. removing an inbox can overload the system
+
+
+Global Memory Management in a Workstation Cluster
+-------------------------------------------------
+
+They use a probability weight-based memory page algorithm.
+
+
+
+
+
+
+
+
+
+
+
