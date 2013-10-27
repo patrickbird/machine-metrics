@@ -17,7 +17,7 @@ c)  Rights are represented by the template which "characterize the actual parame
 
 d)  When a caller CALLs, its rights must be adequate to construct a capability in the new LNS.  To determine if the rights are adequate, the template's rights are merged with the caller's rights.  The "check-rights field" of a procedure's template ensures rights matching.  The capability must include the rights defined by the "check-rights field" of the template.  If so, a new LNS is created with a new capability which references the caller's object with the rights of the template.  This allows rights amplifcation.
 
-e)  The OS detemines a successful CALL by checking both the types of parameters and the rights.  If there is a type mismatch, the CALL is not permitted.  Next, the rights checking is performed as mentioned before with the "check-rights field".  The capability's rights must be at least the rights listed in the "check-rights field" of the template.  If it is, the CALL is permitted.  Otherwise, it is not.
+e)  The OS determines a successful CALL by checking both the types of parameters and the rights.  If there is a type mismatch, the CALL is not permitted.  Next, the rights checking is performed as mentioned before with the "check-rights field".  The capability's rights must be at least the rights listed in the "check-rights field" of the template.  If it is, the CALL is permitted.  Otherwise, it is not.
 
 Multics
 -------
@@ -71,7 +71,7 @@ For example, the Pilot system exceptions will be caught in application exception
 
 2.5)  Debugging the kernel of an operating system is more difficult than a user-level process mainly from the standpoint of the circular dependencies that are involved.  From a layer perspective, a user-level process runs on top of the OS so the OS can provision a debugger for this process and there are not any circular dependencies because the debugger will be somewhere between the OS and the user-level process.
 
-Debugging a kernel of an operating system gets into circular dependencies.  For instance, the debugger might want to utilize a memory protection or buffer mechanisms that are provisioned by the OS.  This will be a problem because the debugger has to be able to debug these mechanisms as well.  Not to mention, the kernel debugger must run with special privlidges to access kernel address space.
+Debugging a kernel of an operating system gets into circular dependencies.  For instance, the debugger might want to utilize a memory protection or buffer mechanisms that are provisioned by the OS.  This will be a problem because the debugger has to be able to debug these mechanisms as well.  Not to mention, the kernel debugger must run with special privilidges to access kernel address space.
 
 One potential option for running a kernel debugger is in a protected address space with its own mechanisms so it is isolated from the kernel's mechanisms.  The kernel would have to expose some subset of debugging commands that the kernel debugger could utilize.  The key is that the kernel must expose itself to the debugger.
 

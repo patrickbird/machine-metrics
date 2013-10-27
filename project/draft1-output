@@ -1,0 +1,153 @@
+[pbird@ussd-dev-pigs01 project(keystone_username)]$ sudo ./measure 1000
+Processor Affinity success.
+Attempting to set priority to -20
+Priority success.
+--------------------------------------
+RDTSCP
+--------------------------------------
+First: 53
+Min: 30 at count 4
+Max: 41 at count 1
+Average: 35.423000
+Standard Deviation: 2.884453
+Sample Count: 1000
+
+--------------------------------------
+LOOP
+--------------------------------------
+First: 45
+Min: 45 at count 1
+Max: 373 at count 425
+Average: 48.000000
+Standard Deviation: 24.307900
+Sample Count: 1000
+
+--------------------------------------
+Procedure (Zero Arguments)
+--------------------------------------
+First: 89
+Min: 30 at count 27
+Max: 44 at count 1
+Average: 37.668000
+Standard Deviation: 4.147743
+Sample Count: 1000
+
+--------------------------------------
+Procedure (One Argument)
+--------------------------------------
+First: 65
+Min: 30 at count 53
+Max: 44 at count 1
+Average: 38.310000
+Standard Deviation: 3.272293
+Sample Count: 1000
+
+--------------------------------------
+Procedure (Two Arguments)
+--------------------------------------
+First: 142
+Min: 33 at count 43
+Max: 44 at count 3
+Average: 40.769000
+Standard Deviation: 4.406999
+Sample Count: 1000
+
+--------------------------------------
+Procedure (Three Arguments)
+--------------------------------------
+First: 68
+Min: 33 at count 6
+Max: 47 at count 9
+Average: 40.391000
+Standard Deviation: 3.112574
+Sample Count: 1000
+
+--------------------------------------
+Procedure (Four Arguments)
+--------------------------------------
+First: 137
+Min: 33 at count 23
+Max: 47 at count 4
+Average: 40.922000
+Standard Deviation: 4.234137
+Sample Count: 1000
+
+--------------------------------------
+Procedure (Five Arguments)
+--------------------------------------
+First: 145
+Min: 36 at count 29
+Max: 47 at count 64
+Average: 41.305000
+Standard Deviation: 4.250879
+Sample Count: 1000
+
+--------------------------------------
+Procedure (Six Arguments)
+--------------------------------------
+First: 68
+Min: 36 at count 5
+Max: 181 at count 971
+Average: 40.786000
+Standard Deviation: 5.869089
+Sample Count: 1000
+
+--------------------------------------
+Procedure (Seven Arguments)
+--------------------------------------
+First: 68
+Min: 36 at count 49
+Max: 48 at count 650
+Average: 42.644000
+Standard Deviation: 2.816250
+Sample Count: 1000
+
+--------------------------------------
+System Call
+--------------------------------------
+First: 2427
+Min: 36 at count 2
+Max: 83 at count 1
+Average: 42.413000
+Standard Deviation: 75.513035
+Sample Count: 1000
+
+--------------------------------------
+Fork
+--------------------------------------
+First: 182993
+Min: 83727 at count 332
+Max: 41948421 at count 687
+Average: 277758.317000
+Standard Deviation: 2184639.444355
+Sample Count: 1000
+
+--------------------------------------
+PThread
+--------------------------------------
+First: 87111
+Min: 19804 at count 23
+Max: 5901437 at count 742
+Average: 35443.975000
+Standard Deviation: 197039.809832
+Sample Count: 1000
+
+--------------------------------------
+Fork Context Switch
+--------------------------------------
+First: 4878939
+Min: 69176 at count 921
+Max: 165570 at count 609
+Average: 82674.764000
+Standard Deviation: 151883.609441
+Sample Count: 1000
+
+--------------------------------------
+PThread Context Switch
+--------------------------------------
+First: 14667
+Min: 2616 at count 745
+Max: 19316 at count 618
+Average: 3114.945000
+Standard Deviation: 858.741700
+Sample Count: 1000

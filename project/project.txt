@@ -1,4 +1,4 @@
-The goal of this paper is to characterize a cluster compute node whose main purprose is to provide cloud infrastructure to companies of various sizes.  Since cloud computing is a somewhat new, but growing field, a characterization of the system would be interesting.
+unamThe goal of this paper is to characterize a cluster compute node whose main purprose is to provide cloud infrastructure to companies of various sizes.  Since cloud computing is a somewhat new, but growing field, a characterization of the system would be interesting.
 
 The author of this paper performed all experiments that are listed herein.  He chose the C language to implement all code.  This decision was driven by the desire to get as close to the machine code itself without it being machine code.  Not to mention, the Linux OS provides many tools and libraries that will make programming in C not as cumbersome as some other languages.
 
