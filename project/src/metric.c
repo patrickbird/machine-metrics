@@ -250,7 +250,7 @@ static uint64_t MeasureLoop(int * arguments)
         sum += ((GetUint64Value(lows[i + 1], highs[i + 1]) - GetUint64Value(lows[i], highs[i]))); 
     }
 
-    return ((double)sum / 99.0);
+    return (uint64_t)(sum / 99.0);
 }
 
 static uint64_t MeasureSevenArguments(int one, int two, int three, int four, int five, int six, int seven)
