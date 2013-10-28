@@ -535,4 +535,37 @@ static uint64_t MeasureForkContextSwitch(int * arguments)
     }
 }
 
+static uint64_t MeasureMainMemory(int * arguments)
+{
+    unsigned int low1, high1, low2, high2;
+    int * largeBlock = malloc(1000000);
+    int dummy;
+    int index = rand() % 1000000;
+
+    GetRdtscpValue(&low1, &high1);
+
+    dummy = largeBlock[index] + 1;
+
+    GetRdtscpValue(&low2, &high2);    
+
+    free(largeBlock);
+
+    return GetUint64Value(&low2, &high2) - GetUint64Value(&low1, &high1);
+}
+
+static uint64_t MeasureL1Cache(int * arguments)
+{
+    unsigned int low1, high1, low2, high2;
+    unsigned int target;
+
+    target = rand() % 5;
+
+    GetRdtscpValue(&low1, &high1);
+
+    target++;
+
+    GetRdtscpValue(&low2, &high2);
+
+    return GetUint64Value(&low2, &high2) - GetUint64Value(&low1, &high1);   
+}
 
