@@ -1,0 +1,40 @@
+Xen and the Art of Virtualization
+---------------------------------
+
+When VmWare first started
+- their market positioning: allow you to run linux on windowws or vice versa
+
+But what helped them make a lot of money?
+
+EMC acquired VmWare for 625 millions in 2004, and then offered 15-20% of VmWare to public (now still owns 80% of Vmware)
+- VmWare Market cap today: $35 billion
+
+At SOSP'03, peaker was asked how Xen relates to L4.  Surprisingily, the speaker responded that the didn't know about it....
+
+VMMs were a hot OS research topic in the 2000s
+
+The name is a play on the book title "Zen and the Art of Motorcycle Maintenance"  While writing the book he wrote computer manuals as his day job.
+
+Note that some aspects of the design of Xen as described in this paper have changed.
+
+What cntribution does this paper make?
+- high-performance VMM that supports strict resource control among guest OSes
+
+
+************   What is the difference between virtualization and paravirtualization?  ******************
+
+Requirements
+------------
+- isolation among virtual machines -- untrusted users
+- heterogenous operating systems simultaneously
+	- hetergeneous applications and environments
+- minimal performance overheard
+	- low cost of virtualization
+	- Ousterhout: 'virtual' is just another way of saying 'slow'
+	- early Cray supercomputers did not have virtual memory because Cray did not want to add overhead of virtual to physical translation
+- strict resource accounting
+	- want folks to pay for resources (higher-evel goals of computational grid)
+- limited mods to guest OSes -- minimize porting overhead
+- no change to applciation binary interface (ABI) -- no porting of apps
+- scale to 100 operating system intances
+	- more not needed by apps

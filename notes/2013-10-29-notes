@@ -1,0 +1,120 @@
+The Performance of u-kernel based systems
+
+Application
+VFS, System call
+IPS, File System
+Scheduler, Virtual Memory
+Device Drivers, Dispatcher
+Hardware
+
+Applicaiton
+Application IPC	UNIX server 	Device driver 	File Server
+Basic IPC, Virtual Memory, Scheduling
+Hardware
+
+
+Why microkernel?
+
+- Modularity
+- Flexibility and extensibility
+	- Easier to replace modules
+	- Different servers can implement the same service in different ways
+- Safety (each server is protected by the OS from other servers)
+
+Why NOT microkernel?
+- Slow - due to "cross-domain" information transfers?
+	- Server-to-kernel-to-server IPC is thought to be a major source of inefficiency
+
+L4: 2nd Generation Micro-kernel
+- The inefficiency and inflexibility of current micro-kernl is not inherit from the basic idea but mostly from overloading the kernel and/or from improper implementation.
+- Start from scratch and aim at minimality (not by evolving from monolithic)
+- IPC performance is the Master
+	- No black magic
+	- All design decision require a performance discussion
+	- The design has to cover all levels from arch down to coding
+
+L4 is still alive and active
+
+Performance Measurement
+- Hopefully, microbenchmarking will never be the same for you
+
+What are the goals of this paper?
+- u-kernel-based systems perform competively with monolithic
+- pure u-kernels can be made as efficient as hybrids
+	- e.g., co-location of server with kernel
+- specialization, extensibility
+
+What is a u-kernel?
+	- u-kernel exports and implements a small number of critical abstracations
+	- some form of: scheduling, memory maangement, and IPC
+
+Why u-kernels?
+- multiple OS personalities
+	- run unix and windows on same system at same time
+- specialization
+	- speicialized implementation of general functionaltiy
+	- ex: various kinds of pipes in L4
+- extensibility
+	- adding features not provided by base implementation
+	- user-level pagers (user-defined VM behaviour)
+	- ex: cache partitioning
+
+What functionality does the L4 u-kernel implement?
+-
+
+How is Linux supported on top of L4?
+- Linux runs as a user-level server (process)
+	- kernel modifications of arch-dependent modules; otherwise unmodified
+	- syscalls are meassages between user processes and linux server
+- full (unmodified) binary compatibility with applications
+
+How is application binary compatibile provided for syscalls?
+- shared libraries
+	- emulation layer between linux API and linux server
+- Trampoline
+	- syscalls in statically linked unmodified linux libraries are reflected back to emulation layer
+
+Also...
+- signaling (emulated)
+- scheduling (simple round-robin w/strict priority)
+- 'tagged' TLBs (why?) because of context switch TLB flushes
+
+
+Exokernel
+---------
+
+- Tension between using an OS to take care of everything on behalf of applications vs. getting the OS out of the way so that applications can maximize their performance
+- Different workload scenerios in which an OS will be used
+- In practice companies wind up modifying and recompiling their own versions of the OS.
+
+- What is the main point of the paper?
+	- customize OS interface/abstractions by moving everything to user-level
+	- OS services implemented using untrusted library OS
+- Motivation for the exokernel approach?
+	- performance suffers from generality of OS interface and abstractions
+	- cannot customize, cannot extend
+	- OS hides key info from applications
+
+What is worrisome about having the FS be a lbirary?
+- no protection
+
+What are the three functions of the exokernel?
+- track resource ownership
+- protection
+- resource revocation
+Exokernel multiplexes h/w resources via allocation and revocation
+Protection ensures correct operation
+Tracking resource ownership is jsut a matter of maintaining tables
+
+What is the mechanism for protection in an exokernel?
+- Secure bindings
+- decouple authorization from use
+- examples
+	- TLB entries pre-authorized, maintained in a software cache
+	- packet filters authorized and compiled at installation time, executed whenever packets received
+
+
+
+
+
+
