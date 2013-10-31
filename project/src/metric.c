@@ -569,3 +569,47 @@ static uint64_t MeasureL1Cache(int * arguments)
     return GetUint64Value(&low2, &high2) - GetUint64Value(&low1, &high1);   
 }
 
+static uint64_t MeasureSequentialRamBandwidth(int * arguments)
+{
+    const blockSize = 1024 * 1024;
+    unsigned int low1, high1, low2, high2;
+    int * block = malloc(blockSize);
+    int i, dummy;
+
+    GetRdtscpValue(&low1, &high1);
+
+    for (i = 0; i < blockSize; i++)
+    {
+        dummy += block[i];
+    }
+
+    GetRdtscpValue(&low2, &high2);
+
+    free(block);
+}
+
+static uint64_t MeasureRandomRamBandwidth(int * arguments)
+{
+    const blockSize = 1024 * 1024;
+    unsigned int low1, high1, low2, high2;
+    int * block = malloc(blockSize);
+    int i, dummy;
+
+    GetRdtscpValue(&low1, &high1);
+
+
+
+    GetRdtscpValue(&low2, &high2);
+
+    free(block);
+}
+
+
+
+
+
+
+
+
+
+
