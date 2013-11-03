@@ -1,4 +1,4 @@
-To compile the code run, unzip to a directory of a machine that has the GCC toolchain and make installed.  After that, just run the command make in the directory.  It should output an executable named "measure."
+To compile the code, unzip to a directory of a machine that has the GCC toolchain and make installed.  After that, just run the command make in the directory.  It should output an executable named "measure."
 
-To run measure, type "sudo ./measure NNNN" where NNNN is the number of iterations.  If you don't have sudo privileges, you will need to manually comment out the system configuration line in main.c and rebuild."
+To run measure, type "sudo ./measure NNNN" where NNNN is the number of iterations.  If you don't have sudo privileges, you will need to manually comment out the system configuration line in main.c and rebuild.
 
