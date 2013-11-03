@@ -19,7 +19,7 @@
 
 #include "metric.h"
 
-#define BLOCK_COUNT 5000
+#define BLOCK_COUNT 10000
 #define ONE_KB 1024
 #define ONE_MB (ONE_KB * ONE_KB)
 #define BLOCK_INDEX_COUNT 10
@@ -582,17 +582,14 @@ static int GetPseudoRandomBlockNumber(void)
 static uint64_t MeasureMainMemory(int * arguments)
 {
     unsigned int low1, high1, low2, high2;
-    int dummy;
     int blockNumber = GetPseudoRandomBlockNumber();
     int blockIndex = rand() % ONE_KB;
 
     GetRdtscpValue(&low1, &high1);
 
-    dummy = _blocks[blockNumber][blockIndex];
+    _dummy = _blocks[blockNumber][blockIndex];
 
     GetRdtscpValue(&low2, &high2);    
-
-    dummy++;
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
@@ -602,64 +599,57 @@ static uint64_t MeasureL1Cache(int * arguments)
     const int INT_COUNT = 50;
 
     unsigned int low1, high1, low2, high2;
-    int i, dummy;
+    int i;
     int blockNumber = GetPseudoRandomBlockNumber();
 
     for (i = 0; i < INT_COUNT; i++)
     {
-        dummy += _blocks[blockNumber][i];
+        _blocks[blockNumber][i] = rand() % INT_MAX;
+        _dummy += _blocks[blockNumber][i];
     }
 
     GetRdtscpValue(&low1, &high1);
 
-    dummy = _blocks[blockNumber][INT_COUNT >> 1];
+    _dummy = _blocks[blockNumber][INT_COUNT >> 1];
 
     GetRdtscpValue(&low2, &high2);
-
-    dummy++;
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);   
 }
 
 static uint64_t MeasureL2Cache(int * arguments)
 {
-    const int BLOCK_LENGTH = 9;
+    const int BLOCK_LENGTH = 200;
 
     unsigned int low1, high1, low2, high2;
-    int i, j, dummy, index;
+    int i, j, index;
+    int blocks[BLOCK_LENGTH];
 
-    int blockNumber = GetPseudoRandomBlockNumber();
+    int blockNumber, blockIndex;
 
     // Read into L1 and spill into L2
     for (i = 0; i < BLOCK_LENGTH; i++)
     {
-        index = blockNumber + i;
+        blocks[i] = GetPseudoRandomBlockNumber();
 
-        if (index >= BLOCK_COUNT)
-        {
-            index = index - BLOCK_COUNT;
-        }
-        
         for (j = 0; j < ONE_KB; j++)
         {
-            dummy += _blocks[index][j];
+            _blocks[blocks[i]][j] = rand() % INT_MAX;
+            _dummy += _blocks[blocks[i]][j];
         }
     }
 
+    blockNumber = blocks[rand() % BLOCK_LENGTH];
+    blockIndex = rand() % ONE_KB; 
+
     GetRdtscpValue(&low1, &high1);
 
-    dummy = _blocks[blockNumber][ONE_KB >> 1];
+    _dummy = _blocks[blockNumber][blockIndex];
 
     GetRdtscpValue(&low2, &high2);
 
-    dummy++;
+    //printf("Block %d index %d\n", blockNumber, blockIndex);
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
-
-
-
-
-
-
 
