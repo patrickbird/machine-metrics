@@ -544,28 +544,41 @@ static uint64_t MeasureMainMemory(int * arguments)
 
     GetRdtscpValue(&low1, &high1);
 
-    dummy = largeBlock[index] + 1;
+    dummy = largeBlock[index];
 
     GetRdtscpValue(&low2, &high2);    
 
+    dummy++;
+
     free(largeBlock);
 
-    return GetUint64Value(&low2, &high2) - GetUint64Value(&low1, &high1);
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
 static uint64_t MeasureL1Cache(int * arguments)
 {
-    unsigned int low1, high1, low2, high2;
-    unsigned int target;
+    const BLOCK_SIZE = 1024;
 
-    target = rand() % 5;
+    unsigned int low1, high1, low2, high2;
+    int i, dummy, index;
+    int * largeBlock = calloc(BLOCK_SIZE, sizeof(int));
+
+    index = rand() % BLOCK_SIZE;
+
+    for (i = 0; i < BLOCK_SIZE; i++)
+    {
+        dummy += largeBlock[i];
+    }
 
     GetRdtscpValue(&low1, &high1);
 
-    target++;
+    dummy = largeBlock[index];
 
     GetRdtscpValue(&low2, &high2);
 
-    return GetUint64Value(&low2, &high2) - GetUint64Value(&low1, &high1);   
+    dummy++;
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);   
 }
+
 
