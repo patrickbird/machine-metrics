@@ -537,10 +537,12 @@ static uint64_t MeasureForkContextSwitch(int * arguments)
 
 static uint64_t MeasureMainMemory(int * arguments)
 {
+    const BLOCK_SIZE = 1000 * 1024; 
+
     unsigned int low1, high1, low2, high2;
-    int * largeBlock = malloc(1000000);
+    int * largeBlock = malloc(BLOCK_SIZE);
     int dummy;
-    int index = rand() % 1000000;
+    int index = rand() % BLOCK_SIZE;
 
     GetRdtscpValue(&low1, &high1);
 
@@ -557,15 +559,15 @@ static uint64_t MeasureMainMemory(int * arguments)
 
 static uint64_t MeasureL1Cache(int * arguments)
 {
-    const BLOCK_SIZE = 1024;
+    const INT_COUNT = 100;
 
     unsigned int low1, high1, low2, high2;
     int i, dummy, index;
-    int * largeBlock = calloc(BLOCK_SIZE, sizeof(int));
+    int * largeBlock = calloc(INT_COUNT, sizeof(int));
 
-    index = rand() % BLOCK_SIZE;
+    index = rand() % INT_COUNT;
 
-    for (i = 0; i < BLOCK_SIZE; i++)
+    for (i = 0; i < INT_COUNT; i++)
     {
         dummy += largeBlock[i];
     }
@@ -578,7 +580,40 @@ static uint64_t MeasureL1Cache(int * arguments)
 
     dummy++;
 
+    free(largeBlock);
+
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);   
 }
+
+static uint64_t MeasureL2Cache(int * arguments)
+{
+   const INT_COUNT = 8250;
+
+   unsigned int low1, high1, low2, high2;
+   int i, dummy, index;
+   int * block = calloc(INT_COUNT, sizeof(int));
+
+   for (i = 0; i < INT_COUNT; i++)
+   {
+        dummy += block[i];
+   }
+
+   GetRdtscpValue(&low1, &high1);
+
+   dummy = block[10];
+
+   GetRdtscpValue(&low2, &high2);
+
+   dummy++;
+
+   free(block);
+
+   return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+
+
+
+
 
 
