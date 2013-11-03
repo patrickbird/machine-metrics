@@ -19,6 +19,10 @@
 
 #include "metric.h"
 
+#define BLOCK_COUNT 5000
+#define ONE_KB 1024
+#define ONE_MB (ONE_KB * ONE_KB)
+
 static struct METRIC
 {
     int SampleCount;
@@ -52,10 +56,15 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Fork",
     "PThread",
     "Fork Context Switch",
-    "PThread Context Switch"
+    "PThread Context Switch",
+    "Main Memory",
+    "L1 Cache",
+    "L2 Cache"
 };
 
 static int _dummy;
+static int _blocks[BLOCK_COUNT][ONE_KB];
+static int _previousIndices[10];
 
 static pthread_mutex_t _mutex;
 static pthread_cond_t _condition;
@@ -81,6 +90,9 @@ static uint64_t MeasureFork(int * arguments);
 static uint64_t MeasurePthread(int * arguments);
 static uint64_t MeasureForkContextSwitch(int * arguments);
 static uint64_t MeasurePthreadContextSwitch(int * arguments);
+static uint64_t MeasureMainMemory(int * arguments);
+static uint64_t MeasureL1Cache(int * arguments);
+static uint64_t MeasureL2Cache(int * arguments);
 
 extern void InitializeMetrics(int sampleCount)
 {
@@ -104,6 +116,9 @@ extern void InitializeMetrics(int sampleCount)
     _metrics[PTHREAD].Measure = MeasurePthread;
     _metrics[FORK_CONTEXT_SWITCH].Measure = MeasureForkContextSwitch;
     _metrics[PTHREAD_CONTEXT_SWITCH].Measure = MeasurePthreadContextSwitch;
+    _metrics[MAIN_MEMORY].Measure = MeasureMainMemory;
+    _metrics[L1_CACHE].Measure = MeasureL1Cache;
+    _metrics[L2_CACHE].Measure = MeasureL2Cache;
 
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
@@ -535,80 +550,122 @@ static uint64_t MeasureForkContextSwitch(int * arguments)
     }
 }
 
+static int FlushCache(void)
+{
+    int i, dummy;
+
+    for (i = 0; i < LARGE_BLOCK_SIZE; i++)
+    {
+        dummy += _flushBlock[i];
+    }
+
+    return dummy;
+}
+
+static int GetPseudoRandomBlockNumber(void)
+{
+    const PREVIOUS_INDEX_COUNT = 10;
+    static int previousIndicies[PREVIOUS_INDEX_COUNT] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    int i  = 0;
+    int blockNumber;
+
+    while (i != PREVIOUS_INDEX_COUNT)
+    {
+        blockNumber = rand() % BLOCK_COUNT;
+
+        for (i = 0; i < PREVIOUS_INDEX_COUNT; i++)
+        {
+            if (abs(blockNumber - previousIndicies[i]) < 100)
+            {
+                break;
+            }
+        }
+    }
+
+    for (i = 0; i < PREVIOUS_INDEX_COUNT - 1; i++)
+    {
+        previousIndicies[i] = previousIndicies[i + 1];
+    }
+
+    previousIndicies[PREVIOUS_INDEX_COUNT - 1] = blockNumber;
+
+    return blockNumber;
+}
+
 static uint64_t MeasureMainMemory(int * arguments)
 {
-    const BLOCK_SIZE = 1000 * 1024; 
-
     unsigned int low1, high1, low2, high2;
-    int * largeBlock = malloc(BLOCK_SIZE);
     int dummy;
-    int index = rand() % BLOCK_SIZE;
+    int blockNumber = GetPseudoRandomBlockNumber();
+    int blockIndex = rand() % ONE_KB;
 
     GetRdtscpValue(&low1, &high1);
 
-    dummy = largeBlock[index];
+    dummy = _largeBlocks[blockNumber][blockIndex];
 
     GetRdtscpValue(&low2, &high2);    
 
     dummy++;
-
-    free(largeBlock);
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
 static uint64_t MeasureL1Cache(int * arguments)
 {
-    const INT_COUNT = 100;
+    const INT_COUNT = 50;
 
     unsigned int low1, high1, low2, high2;
-    int i, dummy, index;
-    int * largeBlock = calloc(INT_COUNT, sizeof(int));
+    int i, dummy;
+    int offset = rand() % (LARGE_BLOCK_SIZE - (INT_COUNT * sizeof(int)));
+    int block = calloc(ONE_KB, sizeof(int));
 
-    index = rand() % INT_COUNT;
+    const int index = INT_COUNT >> 1;
 
+    FlushCache();
+
+    // Read into L1 
     for (i = 0; i < INT_COUNT; i++)
     {
-        dummy += largeBlock[i];
+        dummy += _workingBlock[offset + i];
     }
 
     GetRdtscpValue(&low1, &high1);
 
-    dummy = largeBlock[index];
+    dummy = block[index];
 
     GetRdtscpValue(&low2, &high2);
 
     dummy++;
 
-    free(largeBlock);
+    free(block);
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);   
 }
 
 static uint64_t MeasureL2Cache(int * arguments)
 {
-   const INT_COUNT = 8250;
+    const INT_COUNT = 8250;
 
-   unsigned int low1, high1, low2, high2;
-   int i, dummy, index;
-   int * block = calloc(INT_COUNT, sizeof(int));
+    unsigned int low1, high1, low2, high2;
+    int i, dummy, index;
 
-   for (i = 0; i < INT_COUNT; i++)
-   {
-        dummy += block[i];
-   }
+    FlushCache();
 
-   GetRdtscpValue(&low1, &high1);
+    // Read into L1 and spill into L2
+    for (i = 0; i < INT_COUNT; i++)
+    {
+        dummy += _workingBlock[i];
+    }
 
-   dummy = block[10];
+    GetRdtscpValue(&low1, &high1);
 
-   GetRdtscpValue(&low2, &high2);
+    dummy = _workingBlock[10];
 
-   dummy++;
+    GetRdtscpValue(&low2, &high2);
 
-   free(block);
+    dummy++;
 
-   return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
 
