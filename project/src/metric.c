@@ -605,7 +605,6 @@ static uint64_t MeasureL1Cache(int * arguments)
     for (i = 0; i < INT_COUNT; i++)
     {
         _blocks[blockNumber][i] = rand() % INT_MAX;
-        _dummy += _blocks[blockNumber][i];
     }
 
     GetRdtscpValue(&low1, &high1);
@@ -619,7 +618,7 @@ static uint64_t MeasureL1Cache(int * arguments)
 
 static uint64_t MeasureL2Cache(int * arguments)
 {
-    const int BLOCK_LENGTH = 200;
+    const int BLOCK_LENGTH = 72;
 
     unsigned int low1, high1, low2, high2;
     int i, j, index;
@@ -635,11 +634,10 @@ static uint64_t MeasureL2Cache(int * arguments)
         for (j = 0; j < ONE_KB; j++)
         {
             _blocks[blocks[i]][j] = rand() % INT_MAX;
-            _dummy += _blocks[blocks[i]][j];
         }
     }
 
-    blockNumber = blocks[rand() % BLOCK_LENGTH];
+    blockNumber = blocks[rand() % (BLOCK_LENGTH - 20)];
     blockIndex = rand() % ONE_KB; 
 
     GetRdtscpValue(&low1, &high1);
@@ -648,51 +646,8 @@ static uint64_t MeasureL2Cache(int * arguments)
 
     GetRdtscpValue(&low2, &high2);
 
-    //printf("Block %d index %d\n", blockNumber, blockIndex);
-
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
-
-static uint64_t MeasureSequentialRamBandwidth(int * arguments)
-{
-    const blockSize = 1024 * 1024;
-    unsigned int low1, high1, low2, high2;
-    int * block = malloc(blockSize);
-    int i, dummy;
-
-    GetRdtscpValue(&low1, &high1);
-
-    for (i = 0; i < blockSize; i++)
-    {
-        dummy += block[i];
-    }
-
-    GetRdtscpValue(&low2, &high2);
-
-    free(block);
-}
-
-static uint64_t MeasureRandomRamBandwidth(int * arguments)
-{
-    const blockSize = 1024 * 1024;
-    unsigned int low1, high1, low2, high2;
-    int * block = malloc(blockSize);
-    int i, dummy;
-
-    GetRdtscpValue(&low1, &high1);
-
-
-
-    GetRdtscpValue(&low2, &high2);
-
-    free(block);
-}
-
-
-
-
-
-
 
 
 
