@@ -60,7 +60,10 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "PThread Context Switch",
     "Main Memory",
     "L1 Cache",
-    "L2 Cache"
+    "L2 Cache",
+    "RAM Write Bandwidth",
+    "RAM Read Bandwidth",
+    "Page Size"
 };
 
 static int _dummy;
@@ -93,6 +96,9 @@ static uint64_t MeasurePthreadContextSwitch(int * arguments);
 static uint64_t MeasureMainMemory(int * arguments);
 static uint64_t MeasureL1Cache(int * arguments);
 static uint64_t MeasureL2Cache(int * arguments);
+static uint64_t MeasureRamWrite(int * arguments);
+static uint64_t MeasureRamRead(int * arguments);
+static uint64_t MeasurePageFault(int * arguments);
 
 extern void InitializeMetrics(int sampleCount)
 {
@@ -119,6 +125,9 @@ extern void InitializeMetrics(int sampleCount)
     _metrics[MAIN_MEMORY].Measure = MeasureMainMemory;
     _metrics[L1_CACHE].Measure = MeasureL1Cache;
     _metrics[L2_CACHE].Measure = MeasureL2Cache;
+    _metrics[RAM_WRITE_BANDWIDTH].Measure = MeasureRamWrite;
+    _metrics[RAM_READ_BANDWIDTH].Measure = MeasureRamRead;
+    _metrics[PAGE_FAULT].Measure = MeasurePageFault;
 
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
@@ -134,6 +143,7 @@ extern void InitializeMetrics(int sampleCount)
 extern void FinalizeMetrics(void)
 {
     int i;
+    char fileName[50];
 
     for (i = 0; i < MEASUREMENT_COUNT; i++)
     {
@@ -144,6 +154,8 @@ extern void FinalizeMetrics(void)
     {
         free(_metrics[i].Arguments);
     }
+
+    system("rm /tmp/pagefault*");
 
     printf("Reference the dummy: %d\n", _dummy);
 }
@@ -649,6 +661,95 @@ static uint64_t MeasureL2Cache(int * arguments)
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
+static uint64_t MeasureRamWrite(int * arguments)
+{
+    unsigned int low1, high1, low2, high2;
+    int i, j;
 
+    GetRdtscpValue(&low1, &high1);
+
+    for (i = 0; i < BLOCK_COUNT; i++)
+    {
+        for (j = 0; j < ONE_KB; j++)
+        {
+            _blocks[i][j] = 0x55AA55AA;
+        }
+    }
+
+    GetRdtscpValue(&low2, &high2);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static uint64_t MeasureRamRead(int * arguments)
+{
+    unsigned int low1, high1, low2, high2;
+    int i, j;
+
+    GetRdtscpValue(&low1, &high1);
+
+    for (i = 0; i < BLOCK_COUNT; i++)
+    {
+        for (j = 0; j < ONE_KB; j++)
+        {
+            _dummy = _blocks[i][j];
+        }
+    }
+
+    GetRdtscpValue(&low2, &high2);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static uint64_t MeasurePageFault(int * arguments)
+{
+    static int iteration = 0;
+
+    char randomBuffer[ONE_MB];
+    FILE * file;
+    int i, j, index;
+    int pageSize = getpagesize();
+    int low1, low2, high1, high2;
+    char fileName[50];
+
+    file = fopen("/dev/urandom", "r");
+    
+    fread(randomBuffer, sizeof(char), ONE_MB, file);
+
+    fclose(file);
+
+    sprintf(fileName, "/tmp/pagefault%d", iteration++);
+    file = fopen(fileName, "w");
+
+    fwrite(randomBuffer, sizeof(char), ONE_MB, file);
+
+    fclose(file);
+   
+    for (i = 0; i < BLOCK_COUNT; i++)
+    {
+        for (j = 0; j < ONE_KB; j++)
+        {
+            _dummy += _blocks[i][j];
+        }
+    }
+
+    file = fopen(fileName, "r");
+
+    index = rand() % (ONE_MB - pageSize - 1);
+
+    fseek(file, index, SEEK_SET);
+
+    GetRdtscpValue(&low1, &high1);
+
+    fread(randomBuffer, sizeof(char), pageSize, file);
+    
+    GetRdtscpValue(&low2, &high2);
+
+    fclose(file);
+
+    _dummy = randomBuffer[50] + randomBuffer[5000];
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
 
 
