@@ -13,16 +13,18 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
 #include "metric.h"
 
-#define BLOCK_COUNT 10000
+#define BLOCK_COUNT 1000
 #define ONE_KB 1024
 #define ONE_MB (ONE_KB * ONE_KB)
 #define BLOCK_INDEX_COUNT 10
+#define PAGE_SIZE (4 * ONE_KB)
 
 static struct METRIC
 {
@@ -76,6 +78,7 @@ static void UpdateMetric(enum MEASUREMENT measurement, int index);
 static void UpdateMeasurementCalculations(enum MEASUREMENT measurement);
 static inline void GetRdtscpValue(unsigned int * low, unsigned int * high);
 static inline uint64_t GetUint64Value(unsigned int low, unsigned int high);
+static int GetPseudoRand(void);
 
 static uint64_t MeasureRdtscp(int * arguments);
 static uint64_t MeasureLoop(int * arguments);
@@ -562,6 +565,12 @@ static uint64_t MeasureForkContextSwitch(int * arguments)
     }
 }
 
+static int GetPseudoRand(void)
+{
+    srand(rand() ^ time(NULL));
+    return rand();
+}
+
 static int GetPseudoRandomBlockNumber(void)
 {
     static int previousIndicies[BLOCK_INDEX_COUNT] = {0};
@@ -570,7 +579,7 @@ static int GetPseudoRandomBlockNumber(void)
 
     while (i != BLOCK_INDEX_COUNT)
     {
-        blockNumber = rand() % BLOCK_COUNT;
+        blockNumber = GetPseudoRand() % BLOCK_COUNT;
 
         for (i = 0; i < BLOCK_INDEX_COUNT; i++)
         {
@@ -594,14 +603,18 @@ static int GetPseudoRandomBlockNumber(void)
 static uint64_t MeasureMainMemory(int * arguments)
 {
     unsigned int low1, high1, low2, high2;
-    int blockNumber = GetPseudoRandomBlockNumber();
-    int blockIndex = rand() % ONE_KB;
+    int blockNumber = GetPseudoRand() % BLOCK_COUNT; //GetPseudoRandomBlockNumber();
+    int blockIndex = GetPseudoRand() % ONE_KB;
+    int dummy;
 
     GetRdtscpValue(&low1, &high1);
 
-    _dummy = _blocks[blockNumber][blockIndex];
+    dummy = _blocks[blockNumber][blockIndex];
 
     GetRdtscpValue(&low2, &high2);    
+
+    dummy++;
+    printf("%d\n", GetUint64Value(low2, high2) - GetUint64Value(low1, high1));
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
@@ -612,11 +625,11 @@ static uint64_t MeasureL1Cache(int * arguments)
 
     unsigned int low1, high1, low2, high2;
     int i;
-    int blockNumber = GetPseudoRandomBlockNumber();
+    int blockNumber = GetPseudoRand() % BLOCK_COUNT; //GetPseudoRandomBlockNumber();
 
     for (i = 0; i < INT_COUNT; i++)
     {
-        _blocks[blockNumber][i] = rand() % INT_MAX;
+        _blocks[blockNumber][i] = GetPseudoRand() % INT_MAX;
     }
 
     GetRdtscpValue(&low1, &high1);
@@ -641,16 +654,16 @@ static uint64_t MeasureL2Cache(int * arguments)
     // Read into L1 and spill into L2
     for (i = 0; i < BLOCK_LENGTH; i++)
     {
-        blocks[i] = GetPseudoRandomBlockNumber();
+        blocks[i] = GetPseudoRand() % BLOCK_COUNT; //GetPseudoRandomBlockNumber();
 
-        for (j = 0; j < ONE_KB; j++)
+        for (j = 0; j < ONE_KB; j = j + 10)
         {
-            _blocks[blocks[i]][j] = rand() % INT_MAX;
+            _blocks[blocks[i]][j] = GetPseudoRand() % INT_MAX;
         }
     }
 
-    blockNumber = blocks[rand() % (BLOCK_LENGTH - 20)];
-    blockIndex = rand() % ONE_KB; 
+    blockNumber = blocks[GetPseudoRand() % (BLOCK_LENGTH - 20)];
+    blockIndex = GetPseudoRand() % ONE_KB; 
 
     GetRdtscpValue(&low1, &high1);
 
@@ -703,51 +716,38 @@ static uint64_t MeasureRamRead(int * arguments)
 
 static uint64_t MeasurePageFault(int * arguments)
 {
-    static int iteration = 0;
-
-    char randomBuffer[ONE_MB];
     FILE * file;
     int i, j, index;
     int pageSize = getpagesize();
     int low1, low2, high1, high2;
-    char fileName[50];
+    char page[PAGE_SIZE];
+    char page2[PAGE_SIZE];
 
-    file = fopen("/dev/urandom", "r");
+    //for (i = 0; i < PAGE_SIZE; i++)
+    //{
+    //    page[i] = rand() % UCHAR_MAX;
+    //}
+    //strcpy(page, "Hello");
+
+    //printf("First %s\n", page);
+
+    //file = tmpfile();
+
+    //fwrite(page, sizeof(char), PAGE_SIZE, file);
+
+    //mprotect(page, PAGE_SIZE, PROT_NONE);
+    //memset(page, 0, PAGE_SIZE);
+
+    file = fopen("try", "r");
     
-    fread(randomBuffer, sizeof(char), ONE_MB, file);
-
-    fclose(file);
-
-    sprintf(fileName, "/tmp/pagefault%d", iteration++);
-    file = fopen(fileName, "w");
-
-    fwrite(randomBuffer, sizeof(char), ONE_MB, file);
-
-    fclose(file);
-   
-    for (i = 0; i < BLOCK_COUNT; i++)
-    {
-        for (j = 0; j < ONE_KB; j++)
-        {
-            _dummy += _blocks[i][j];
-        }
-    }
-
-    file = fopen(fileName, "r");
-
-    index = rand() % (ONE_MB - pageSize - 1);
-
-    fseek(file, index, SEEK_SET);
 
     GetRdtscpValue(&low1, &high1);
+    fseek(file, 5000000, SEEK_SET);
 
-    fread(randomBuffer, sizeof(char), pageSize, file);
+    fread(page, sizeof(char), pageSize, file);
     
     GetRdtscpValue(&low2, &high2);
 
-    fclose(file);
-
-    _dummy = randomBuffer[50] + randomBuffer[5000];
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
