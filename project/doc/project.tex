@@ -38,6 +38,7 @@
 \usepackage{url}
 \usepackage{pstricks-add}
 \usepackage{pgfplots}
+\usepackage{listings}
 
 %%% Custom sectioning
 \usepackage{sectsty}
@@ -68,7 +69,7 @@
 \title{
         %\vspace{-1in}  
         \usefont{OT1}{bch}{b}{n}
-        \normalfont \normalsize \textsc{School of random department names} \\ [25pt]
+        \normalfont \normalsize \textsc{} \\ [25pt]
         \horrule{0.5pt} \\[0.4cm]
         \huge CSE 221 Final Project \\
         \huge       Draft 1         \\
@@ -105,7 +106,7 @@ So far, I have invested about 30 hours into this project thus far.  I alone have
 
 The system has two processors, with each having six cores that are hyperthreaded.  This information was called from /proc/cpuinfo and matched with the information from Intel's website.  The processors are Intel Xeon E5-2620 that run at 2000.053 MHz to be exact.  There are three levels of cache - 32 KB of L1 each for data and instructions, 256 KB of L2 (both), and 15,360 KB of L3 (both).  The instruction pipeline is anywhere from 17 to 20 stages.
 
-The memory size is 128 GB of DDR3 RAM.  The potential speed is 1600 MHZ, however, the configurable clock speed is set to 1333 MHz.  The processor is setup so that it can utilize four memory channels with the RAM.  The more channels it has, the greater opportunity the processor has for read and write parallelism.  This information was found by the dmidecode command.
+The memory size is 128 GB of DDR3 RAM.  The potential speed is 1600 MHZ, however due to the fact that the processor can at max handle 1333 MHz, the configurable clock speed is set to 1333 MHz.  The processor is setup so that it can utilize four memory channels with the RAM.  The more channels it has, the greater opportunity the processor has for read and write parallelism.  This information was found by the dmidecode command.
 
 The hard disk is a 1 TB hard disk drive at 7200 RPM.  The network card is full duplex gigabit ethernet.  The operating system is 64-bit CentOS v6.4, kernel version v2.6.32-358.11.1.
 
@@ -411,6 +412,145 @@ The statistical metrics for the various context switching are as follows.  Again
     \hline
     \end{tabular}
 \end{center}
+
+\section{Memory Operations}
+
+
+
+\subsection{Main Memory}
+
+\subsubsection{Methodology}
+
+To perform memory measurements, there needed to be some memory store instantiated with some signicant size.  Otherwise, the timings could all be for naught since the compiler might choose to cache the variable instead.  For instance, for measuring a 32-bit integer from main memory, I did not just want to \textit{malloc} four bytes in main memory and then measure the read.  For all I know, the compiler with the OS may choose to cache this memory upon instantiation.
+
+One of the main challenges about reading from main memory is trying to figure out how to force the process to actually read from main memory.  Since a CPU cache exists, the OS will attempt to read into it data memory that it has calculated might be referenced later.  For instance, the first memory operation to be estimated and measured is reading a single 4-byte integer from memory.  Creating a four byte integer on the heap and referencing it might be all well and good for the first access.  But after that, the kernel may have brought this integer along with its neighboring memory into the cache.  Thus, another reference to this same spot in memory in the next hundred or so loops will read the value from cache instead of main memory.
+
+Since cache exists and memory readahead is implemented, there must be a method to randomly index into memory and read an arbitrary value.  Thus, for the memory tests, I created a two-dimensional integer array of size 1000 x 1024.  Thus, if laid out contiguously, the array would take up 4,096,000 bytes.  With this array, I can randomly index into it and hopefully gain good measurements by doing so.
+
+To randomly index into the array, I utilize the \textit{rand()} function with the current time as the seed.  Each time I access the random function, I bit XOR it with the previous random number time in order for the pseudo-random number not to be based on time\textsubscript{n} and time\textsubscript{n-1}.  So for each read timing, the software randomly calculates the block number (0-999) and the byte offset (0-4096).  The calculations for pseudo-randomness is not part of either the estimation or the final measurement.
+
+The measurement bounds for reading an integer from main meory is as follows.  The \textbf{RDTSCP} is read.  Then, a four-byte integer is retrieved from a pseudo-random index into the two dimensional array.  The \textbf{RDTSCP} is read again.  The difference is calculated and the measurement is performed 1000 times to calculate an average and other interesting metrics.  The loop to cycle through this measurement is outside the timing mechanism so it is not considered as part of the measurement itself.
+
+\subsubsection{Estimation}
+
+Upon executing the instruction to read the four byte integer from memory, the caches will be checked first.  If there are misses at all three levels, the data will be fetched from main memory and will most likely be put into L1 cache.  As mentioned before, a pseudo random index into a large block of memory will hopefully cause this to happen each time memory is referenced so a valid measurement can exist.
+
+Since the memory is clocked at 1333 MHz.  A single read will have some overhead associated with the timing mechanism itself ~ 30 CPU clock cycles, a double index into an array ~ 4 CPU clock cycles, and then the memory access itself.
+
+To measure the access speed of main memory, we'll also have to take into account the L1, L2, and L3 cache memory access times as well.  A miss at the first cache level will probably be on the magnitude around 10 clock cycles.  At the next level, it is more expensive, say 30 clock cycles.  At the last level, say it is about 60 clock cycles.  After that, a read from memory is in order.  A read from memory will cause a translation in the MMU and a read.  Because there is a scale factor between the CPU clock and the memory clock, the access for an four-byte integer will take about 200 cycles.  In all, I estimate that the memory read will take about 200+10+30+60 clock cyles or about 300 clock cycles.
+
+
+\subsubsection{Measurement}
+
+To access a single four-byte integer from main memory took on average 241 CPU cycles or 120 ns.  It was pleasing to see that my estimate was within a certain amount.  The max ws fairly high at 6323 cycles.  Some of these larger values can probably be understood as part of a context switch.  These upper values have also thrown off the standard deviation.  Needless to say though that the measurements are within a reasonable number for accessing a single integer from main memory.
+
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l |}
+    \hline
+    No. of Samples & First Iteration & Min & Max & Mean & Std Dev \\ \hline
+    1000 iterations & 1461 cycles & 178 cycles & 6323 cycles & 241.2 cycles & 247.7  cycles \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+\subsection{L1 \& L2 Caches}
+
+\subsubsection{Methodology}
+
+Trying to force a read from L1 cache is somewhat tricky.  There is no guarantee that the variable that one reads will actually be the one in cache.  However, we can get fairly sure.
+
+To read a integer from L1 cache, I start by reading fifty integers from a static array into L1 cache by way of a for loop.  I could not just define an integer in the function since that would put it in a register.  So, fifty integer are read into L1 cache.  Afterwards, I read \textbf{RDTSCP} and then index to the 25th element of the array.  This element should be in L1 cache.  Then, I read \textbf{RDTSCP} again to find how long the read took.
+
+To read an integer from L2 cache was a little more difficult to figure out than L1.  Somehow, the data I would be referencing would have to be forced out of L1 and drop into L2 without going farther into the L3 cache or back to main memory.  The methodology for forcing a value to L2 continutes where L1 left off.
+
+The L1 size for this machine is 32 KB of data.  It also has 32 KB of instruction cache but that does not pertain to this measurement.  The L2 cache is much larger at 256 KB.  To measure L2, data needs to be read into L1 where it would "spill over" into L2 from where I could read.
+
+A large static two-dimensional integer array (5000x1024) was created for this purpose among others.  All in all, this array measures to be around 20 MB. The \textit{MeasureL2Cache} function randomly indexes into this array and reads 50 different 4 KB blocks (or ~ 200 KB) into the L1 and consequently into the L2 cache.  After these 50 blocks are read in, a random block from the first 30 are indexed into again for the integer read.  The reasoning is that the last 20 blocks will more than cover the 32 KB of L1 cache and that hopefully by reading an integer from the first 30 will be from the L2 cache. 
+
+\subsubsection{Estimation}
+
+L1 reads are very fast and will be hardly more than the time it takes to read \textbf{RDTSCP}.  Thus, I estimate that an L1 read will take three clock cycles.  L2, on the other hand, will take much longer.  And not just twice as long.  There is an L1 cache miss involved and depending on how far away the L2 cache is, I estimate that L2 will rather take five times as long or about 15 clock cycles.
+
+\subsubsection{Measurement}
+
+The measurements for the L1 cache estimation.  The average L1 cache read clocked in at 40 clock cycles or 5 more than the \textbf{RDTSCP} call.   Thus, a L1 read took 2.5 ns.  The standard deviation is 3.05 which gives me confidence for my methodology.
+
+The L2 cache measurement was very close to the estimate as well.  The average L2 cache read was 61.9 clock cycles or about 17 clock cycles more than the \textbf{RDTSCP} read.  This timing includes both the L1 miss and L2 hit.  There was more variance in the results (the standard deviation is 48.86) which is mainly due to the fact that it is a little more difficult to force data into the L2 cache.  My guess is that sometimes the data probably went to L3 cache or back to main memory which explains the max read of 506 clock cycles. 
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l | l |}
+    \hline
+    Measurement & No. of Samples & First Iteration & Min & Max & Mean & Std Dev \\
+    \hline
+    L1 Cache & 1000 iterations & 50 cycles & 33 cycles & 50 cycles & 40.84 cycles & 3.05  cycles \\ 
+    L2 Cache & 1000 iterations & 57 cycles & 36 cycles & 506 cycles & 61.58 cycles & 48.87  cycles \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+
+\subsection{RAM Bandwidth}
+
+\subsubsection{Methodology}
+
+The methodology for RAM bandwidth is fairly straightforward.  In both cases, a double for loop is used to page through the 5000x1024 array.  In one case the program reads from it.  In the other case, it writes to it.  The \textbf{RDTSCP} instructions are placed before and after these for loops.
+
+In an attempt to remove any time latencies in the loop itself, I wrapped the \textit{MeasureRamWrite()} and \textit{MeasureRamRead()} functions with a GCC pragma to unroll the loops:
+
+\lstset{language=C}
+\begin{lstlisting}
+#pragma GCC optimize ("unroll-loops")
+\end{lstlisting}
+
+\subsubsection{Estimation}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 %%% End document
