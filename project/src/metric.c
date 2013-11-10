@@ -20,7 +20,7 @@
 
 #include "metric.h"
 
-#define BLOCK_COUNT 1000
+#define BLOCK_COUNT 5000
 #define ONE_KB 1024
 #define ONE_MB (ONE_KB * ONE_KB)
 #define BLOCK_INDEX_COUNT 10
@@ -603,25 +603,26 @@ static int GetPseudoRandomBlockNumber(void)
 static uint64_t MeasureMainMemory(int * arguments)
 {
     unsigned int low1, high1, low2, high2;
-    int blockNumber = GetPseudoRand() % BLOCK_COUNT; //GetPseudoRandomBlockNumber();
-    int blockIndex = GetPseudoRand() % ONE_KB;
+    int index = GetPseudoRand() % 4000000;
     int dummy;
+    int * temp = calloc(4000000, sizeof(int));
 
     GetRdtscpValue(&low1, &high1);
 
-    dummy = _blocks[blockNumber][blockIndex];
+    dummy = temp[index];
 
     GetRdtscpValue(&low2, &high2);    
 
     dummy++;
-    printf("%d\n", GetUint64Value(low2, high2) - GetUint64Value(low1, high1));
+    
+    free(temp);
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
 static uint64_t MeasureL1Cache(int * arguments)
 {
-    const int INT_COUNT = 50;
+    const int INT_COUNT = 10;
 
     unsigned int low1, high1, low2, high2;
     int i;
@@ -643,18 +644,17 @@ static uint64_t MeasureL1Cache(int * arguments)
 
 static uint64_t MeasureL2Cache(int * arguments)
 {
-    const int BLOCK_LENGTH = 72;
+    const int BLOCK_LENGTH = 50;
 
     unsigned int low1, high1, low2, high2;
     int i, j, index;
     int blocks[BLOCK_LENGTH];
-
     int blockNumber, blockIndex;
 
     // Read into L1 and spill into L2
     for (i = 0; i < BLOCK_LENGTH; i++)
     {
-        blocks[i] = GetPseudoRand() % BLOCK_COUNT; //GetPseudoRandomBlockNumber();
+        blocks[i] = GetPseudoRand() % BLOCK_COUNT;
 
         for (j = 0; j < ONE_KB; j = j + 10)
         {
@@ -674,6 +674,9 @@ static uint64_t MeasureL2Cache(int * arguments)
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
+#pragma GCC push_options
+#pragma GCC optimize ("unroll-loops")
+
 static uint64_t MeasureRamWrite(int * arguments)
 {
     unsigned int low1, high1, low2, high2;
@@ -681,13 +684,18 @@ static uint64_t MeasureRamWrite(int * arguments)
 
     GetRdtscpValue(&low1, &high1);
 
-    for (i = 0; i < BLOCK_COUNT; i++)
-    {
-        for (j = 0; j < ONE_KB; j++)
-        {
-            _blocks[i][j] = 0x55AA55AA;
-        }
-    }
+    //for (i = 0; i < BLOCK_COUNT; i++)
+    //{
+    //    for (j = 0; j < ONE_KB; j++)
+    //    {
+    //        _blocks[i][j] = 0x55AA55AA;
+    //    }
+    //}
+    //
+
+    asm("cld\n"
+        "rep stosq"
+        : : "D" (_blocks), "c" (sizeof(_blocks) >> 3), "a" (0) );
 
     GetRdtscpValue(&low2, &high2);
 
@@ -701,18 +709,24 @@ static uint64_t MeasureRamRead(int * arguments)
 
     GetRdtscpValue(&low1, &high1);
 
-    for (i = 0; i < BLOCK_COUNT; i++)
-    {
-        for (j = 0; j < ONE_KB; j++)
-        {
-            _dummy = _blocks[i][j];
-        }
-    }
+    //for (i = 0; i < BLOCK_COUNT; i++)
+    //{
+    //    for (j = 0; j < ONE_KB; j++)
+    //    {
+    //        _dummy = _blocks[i][j];
+    //    }
+    //}
+    
+    asm("cld\n"
+        "rep lodsq"
+        : : "S" (_blocks), "c" (sizeof(_blocks) >> 3) : "%eax");
 
     GetRdtscpValue(&low2, &high2);
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
+
+#pragma GCC pop_options
 
 static uint64_t MeasurePageFault(int * arguments)
 {
