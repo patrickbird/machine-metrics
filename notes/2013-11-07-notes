@@ -1,0 +1,88 @@
+VAX
+---
+
+Background
+- VAX: Virtual Address Extension
+- VMS: Virtual Memory System
+- Both VAX and VMS were very influential to today's systems
+	- it was powerful minicomputer at the time
+	- it was affordable by CS departments
+
+What is the main challenge the paper describes?
+- mechamisms and policies for VM system for minicomputers to support a wide range of application requirements
+
+What are the four regions of a VAX/VMS address space?
+
+P0
+-----
+P1
+-----
+Sys
+-----
+Res
+
+P0: program region (code data)
+P1: program control (stack, command editor)
+Sys: system address space -- the OS
+Res: reserved (not used)
+
+Benefits of such layout
+- OS is essentially just an extension of user address space
+- convenience: OS can directly access user code and data
+- note kernel stacks in user address space (user incurs cost)
+	- no longer do this (now a homework question)
+
+What VM hardware is used?
+- page table: base reg + length reg
+	- note that regions in address space are contiguous, not an accident
+	- page tables do not have holes themselves
+	- what are the implementations for addr space usage?
+	- cannot efficiently support sparse address spaces, e.g., multiple stacks for tbreads, shared memory, shared libraries, etc.
+
+- TLB
+- note separation of resources between user and system
+	- in general, want to avoid static partitioning of resources
+	- particularly scarce hardware resources
+
+User vs. Kernel
+- In many respects, user and kernel page tables are similar.  But how are they different?
+	- user page tables exist in kernel address space
+	- kernel page tables exist in phyiscal memory space
+	- the pros of this is that the kernel stuff will never be paged out
+	- this is rather subtle, but important
+		- can user page tables be paged? yes
+		- can kernel page tables be paged? no
+	- ok, so how would we make kernel page tables pageable?
+		- also place in kernel address space
+
+The pager code always has to be in main memory
+
+Interpreter
+- There is something interesting about the command interpreter on VAX/VMS.  What is it?
+	- command interpreter is a part of each user's address space
+	- how is this different from Unix/Windows
+		- separate process
+
+Optimizations
+- Paper describes three techniques for VM performance:
+	- local page replacement
+	- page caching
+	- clustering
+- What is local replacement and why is it used?
+	- each process gets a max resident size of memory
+	- when it reaches max, it replaces from its own set of pages
+- Why?
+	- isolation from rest of system
+	- memory hog cannot use up resources
+
+Replacement
+- What is their replacement policy?
+	- FIFO
+- What did you learn in undergrad OS about replacement policies?
+	- FIFO not a great performer
+- Why did they use it?
+
+Page Clustering
+- What was the motivation for clustering, and what is it?
+
+Do I/O in large chunks	
