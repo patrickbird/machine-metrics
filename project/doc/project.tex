@@ -494,9 +494,9 @@ The L2 cache measurement was very close to the estimate as well.  The average L2
 
 \subsubsection{Methodology}
 
-The methodology for RAM bandwidth is fairly straightforward.  In both cases, a double for loop is used to page through the 5000x1024 array.  In one case the program reads from it.  In the other case, it writes to it.  The \textbf{RDTSCP} instructions are placed before and after these for loops.
+The first, easy to implement function to read and write from memory would be to take a large array and iterate over it with a for loop.  The single instruction inside the loop would either be the read or the write.  Unfortunately, the loop and the branching would cause significant overhead to the measurement.  Even though, there is a previous measurement of the loop cost, I sought out a more efficient approach.
 
-In an attempt to remove any time latencies in the loop itself, I wrapped the \textit{MeasureRamWrite()} and \textit{MeasureRamRead()} functions with a GCC pragma to unroll the loops:
+From James Leiterman's book \textit{32\/64-Bit 80x86 Assembly Language Architecture}, he mentions the \textbf{REP STOSQ} and \textit{REP LODSQ} instructions.  The \textbf{STOSQ} and the \textbf{LODSQ} write and read 8-byte strings of bytes to and from memory, respecitively.  The \textbf{REP} prefix informs the CPU to repeatedly perform the instruction for a count specified in the \textbf{RCX} register.  Peforming this instruction will streamline the instructions and remove some of the overhead in branching.
 
 \lstset{language=C}
 \begin{lstlisting}
@@ -505,10 +505,31 @@ In an attempt to remove any time latencies in the loop itself, I wrapped the \te
 
 \subsubsection{Estimation}
 
+The memory has a maximum ideal speed of 1600 MHz.  However, because of the current CPU, the clock for the memory is configured to be 1333 MHz. The data bus is 64 bits wide with some additional bits for error code checking.  There are four memory channels per processor.  However, these channels are shared amongst cores and I don't forsee that the one core that my process is attached to to utilize all four memory channels.
 
+For instance, the Intel website\footnote{http://ark.intel.com/products/64594} specifies the maximum memory bandwidth to be 42.6 GB/s.  And this calculation can be figured out easily.  It takes the fastest DDR3 memory it can handle 1333 MHz, multiplies it by the number of memory channels and then by the 8-byte data bus.
 
+However, these memory channels are shared amongst six cores on the processor.  And since this process will only be on one of the cores, it will probably only use one channel at a time.  So my estimation will only be for one of the channels being utilized.
 
+Thus, we can take the maximum memory bandwidth that Intel provided and divide it by the number of channels (4) since our system is configured with DDR3 1333 MHz RAM.  So, the maximum memory bandwidth for one channel is 10.65 GB/s.  Accounting for 10\% overhead, I hope to reach 9.59 GB/s.
 
+\subsubsection{Measurement}
+
+For the data read operation, it took 5,360,451 clock cycles, or about 2.6 ms, to read from the 5000 x 1024 array on average.  The bandwidth for the memory would then be around:
+
+\begin{gather}
+bandwidth = 5000 blocks * 1024 elements * 4 bytes * \frac{2,000,053,000 Hz}{5,360,451 cycles} \\
+bandwidth = 7.641 GiB/s
+\end{gather}
+
+For the data write operation, it took 5,344,615 clock cycles, or about 2.6 ms, to write to the 5000 x 1024 array.  Interestingily enough, this is the exact same time as the data read.  For a sanity check, I ran through the experiment multiple times and I get similar results each time.  The data read and data write are extremely close with one another.  Again the standard deviation is quite small ~ 158,450 clock cycles which is 3\% of the average.  The bandwidth would then be:
+
+\begin{gather}
+bandwidth = 5000 blocks * 1024 elements * 4 bytes * \frac{2,000,053,000 Hz}{5,344,615 cycles} \\
+bandwidth = 7.664 GiB/s
+\end{gather}
+
+The write and read bandwidth are quite close with one another.  Unfortunately, the bandwidth is still outside my estimate of 9 GiB/s.  One reason for lower bandwidth is that this process is bound to a particular core.  If there were a method to leverage all cores and write to memory at the same time, there might be a way to get close to a ideal bandwidth number.
 
 
 
