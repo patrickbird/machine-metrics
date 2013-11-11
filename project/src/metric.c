@@ -674,24 +674,12 @@ static uint64_t MeasureL2Cache(int * arguments)
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
-#pragma GCC push_options
-#pragma GCC optimize ("unroll-loops")
-
 static uint64_t MeasureRamWrite(int * arguments)
 {
     unsigned int low1, high1, low2, high2;
     int i, j;
 
     GetRdtscpValue(&low1, &high1);
-
-    //for (i = 0; i < BLOCK_COUNT; i++)
-    //{
-    //    for (j = 0; j < ONE_KB; j++)
-    //    {
-    //        _blocks[i][j] = 0x55AA55AA;
-    //    }
-    //}
-    //
 
     asm("cld\n"
         "rep stosq"
@@ -709,14 +697,6 @@ static uint64_t MeasureRamRead(int * arguments)
 
     GetRdtscpValue(&low1, &high1);
 
-    //for (i = 0; i < BLOCK_COUNT; i++)
-    //{
-    //    for (j = 0; j < ONE_KB; j++)
-    //    {
-    //        _dummy = _blocks[i][j];
-    //    }
-    //}
-    
     asm("cld\n"
         "rep lodsq"
         : : "S" (_blocks), "c" (sizeof(_blocks) >> 3) : "%eax");
@@ -725,8 +705,6 @@ static uint64_t MeasureRamRead(int * arguments)
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
-
-#pragma GCC pop_options
 
 static uint64_t MeasurePageFault(int * arguments)
 {
