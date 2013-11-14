@@ -43,6 +43,12 @@ static struct METRIC
     int * Arguments;
 } _metrics[MEASUREMENT_COUNT];
 
+struct Node
+{
+    char Data[50000];
+    struct Node * Next;
+};
+
 static const char * MetricNames[MEASUREMENT_COUNT] =
 {
     "RDTSCP",
@@ -63,13 +69,15 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Main Memory",
     "L1 Cache",
     "L2 Cache",
+    "Back-to-back Latency",
     "RAM Write Bandwidth",
     "RAM Read Bandwidth",
-    "Page Size"
+    "Page Fault"
 };
 
 static int _dummy;
 static int _blocks[BLOCK_COUNT][ONE_KB];
+static struct Node  _headNode;
 
 static pthread_mutex_t _mutex;
 static pthread_cond_t _condition;
@@ -99,6 +107,7 @@ static uint64_t MeasurePthreadContextSwitch(int * arguments);
 static uint64_t MeasureMainMemory(int * arguments);
 static uint64_t MeasureL1Cache(int * arguments);
 static uint64_t MeasureL2Cache(int * arguments);
+static uint64_t MeasureBackToBackLoad(int * arguments);
 static uint64_t MeasureRamWrite(int * arguments);
 static uint64_t MeasureRamRead(int * arguments);
 static uint64_t MeasurePageFault(int * arguments);
@@ -106,7 +115,8 @@ static uint64_t MeasurePageFault(int * arguments);
 extern void InitializeMetrics(int sampleCount)
 {
     int i;
-
+    struct Node * node;
+    
     for (i = 0; i < MEASUREMENT_COUNT; i++)
     {
         _metrics[i].Max = 0;
@@ -128,6 +138,7 @@ extern void InitializeMetrics(int sampleCount)
     _metrics[MAIN_MEMORY].Measure = MeasureMainMemory;
     _metrics[L1_CACHE].Measure = MeasureL1Cache;
     _metrics[L2_CACHE].Measure = MeasureL2Cache;
+    _metrics[BACK_TO_BACK].Measure = MeasureBackToBackLoad;
     _metrics[RAM_WRITE_BANDWIDTH].Measure = MeasureRamWrite;
     _metrics[RAM_READ_BANDWIDTH].Measure = MeasureRamRead;
     _metrics[PAGE_FAULT].Measure = MeasurePageFault;
@@ -141,12 +152,23 @@ extern void InitializeMetrics(int sampleCount)
 
     pthread_mutex_init(&_mutex, NULL);
     pthread_cond_init(&_condition, NULL);
+
+    node = calloc(1, sizeof(struct Node));
+    _headNode.Next = node;
+    for (i = 0; i < 1000; i++)
+    {
+        node->Next = calloc(1, sizeof(struct Node));
+        node = node->Next;
+    }
+
+    node->Next = NULL;
 }
 
 extern void FinalizeMetrics(void)
 {
     int i;
     char fileName[50];
+    struct Node * node = _headNode.Next;
 
     for (i = 0; i < MEASUREMENT_COUNT; i++)
     {
@@ -156,6 +178,13 @@ extern void FinalizeMetrics(void)
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
         free(_metrics[i].Arguments);
+    }
+
+    while (node->Next != NULL)
+    {
+        struct Node * temp = node->Next;
+        free(node);
+        node = temp;
     }
 
     system("rm /tmp/pagefault*");
@@ -600,12 +629,26 @@ static int GetPseudoRandomBlockNumber(void)
     return blockNumber;
 }
 
+static void ClearCache(void)
+{
+    int i, j;
+
+    for (i = 0; i < BLOCK_COUNT; i++)
+    {
+        for (j = 0; j < ONE_KB; j++)
+        {
+            _blocks[i][j] = i * j;
+        }
+    }
+}
+
 static uint64_t MeasureMainMemory(int * arguments)
 {
     unsigned int low1, high1, low2, high2;
-    int index = GetPseudoRand() % 4000000;
+    int index = GetPseudoRand() % 8000000;
     int dummy;
-    int * temp = calloc(4000000, sizeof(int));
+    int * temp = calloc(8000000, sizeof(int));
+
 
     GetRdtscpValue(&low1, &high1);
 
@@ -616,6 +659,28 @@ static uint64_t MeasureMainMemory(int * arguments)
     dummy++;
     
     free(temp);
+
+    ClearCache();    
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static uint64_t MeasureBackToBackLoad(int * arguments)
+{
+    struct Node * node = _headNode.Next;
+    unsigned int low1, high1, low2, high2;
+    int i, j;
+
+    GetRdtscpValue(&low1, &high1);
+
+    while (node->Next != NULL)
+    {
+        node = node->Next;
+    }
+
+    GetRdtscpValue(&low2, &high2);    
+
+    ClearCache();
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
@@ -638,6 +703,8 @@ static uint64_t MeasureL1Cache(int * arguments)
     _dummy = _blocks[blockNumber][INT_COUNT >> 1];
 
     GetRdtscpValue(&low2, &high2);
+
+    ClearCache();
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);   
 }
@@ -670,6 +737,8 @@ static uint64_t MeasureL2Cache(int * arguments)
     _dummy = _blocks[blockNumber][blockIndex];
 
     GetRdtscpValue(&low2, &high2);
+
+    ClearCache();
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
@@ -709,39 +778,37 @@ static uint64_t MeasureRamRead(int * arguments)
 static uint64_t MeasurePageFault(int * arguments)
 {
     FILE * file;
-    int i, j, index;
-    int pageSize = getpagesize();
     int low1, low2, high1, high2;
-    char page[PAGE_SIZE];
-    char page2[PAGE_SIZE];
+    int dummy;
+    uint64_t seekPos;    
+    uint64_t diff;
 
-    //for (i = 0; i < PAGE_SIZE; i++)
-    //{
-    //    page[i] = rand() % UCHAR_MAX;
-    //}
-    //strcpy(page, "Hello");
+    file = fopen("test", "r");
 
-    //printf("First %s\n", page);
+    if (file == NULL)
+    {
+        printf("Couldn't open file.\n");
+        exit(0);
+    }
 
-    //file = tmpfile();
-
-    //fwrite(page, sizeof(char), PAGE_SIZE, file);
-
-    //mprotect(page, PAGE_SIZE, PROT_NONE);
-    //memset(page, 0, PAGE_SIZE);
-
-    file = fopen("try", "r");
-    
+    seekPos = (((uint64_t)GetPseudoRand() << 32) | (uint64_t)GetPseudoRand()) % 300000000000ULL;
 
     GetRdtscpValue(&low1, &high1);
-    fseek(file, 5000000, SEEK_SET);
-
-    fread(page, sizeof(char), pageSize, file);
     
+    fseek(file, seekPos, SEEK_SET);
+
+    fread(&dummy, sizeof(int), 1, file);
+
     GetRdtscpValue(&low2, &high2);
 
+    _dummy = dummy + 1;
 
-    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+    diff =  GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+
+
+    fclose(file);
+
+    return diff;
 }
 
 
