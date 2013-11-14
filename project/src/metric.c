@@ -269,7 +269,7 @@ extern void InitializeMetrics(int sampleCount)
     for (i = 0; i < 5; i++)
     {
         int j;
-        size = 256;
+        size = 64;
 
         for (j = MEM_INITIAL + 20 * i; j < MEM_INITIAL + 20 * i + 20; j++)
         {
@@ -279,7 +279,6 @@ extern void InitializeMetrics(int sampleCount)
             _metrics[j].Arguments[1] = size;
 
             size = size << 1;
-            printf("%d\n", j);
         }
 
         stride = stride << 1;
@@ -412,14 +411,14 @@ static void UpdateMeasurementCalculations(enum MEASUREMENT measurement)
     
     }
 
-        if (measurement >= MEM_INITIAL && measurement <= MEM_FINAL)
-        {
-            int stripes = _metrics[measurement].Arguments[0];
-            int size = _metrics[measurement].Arguments[1];
+        //if (measurement >= MEM_INITIAL && measurement <= MEM_FINAL)
+        //{
+        //    int stripes = _metrics[measurement].Arguments[0];
+        //    int size = _metrics[measurement].Arguments[1];
 
-            average = average - _metrics[RDTSCP].Mean;// - ((size/stripes) * _metrics[LOOP].Mean);
-            average = average / ((double) size / (double)stripes);
-        }
+        //    average = average - _metrics[RDTSCP].Mean;// - ((size/stripes) * _metrics[LOOP].Mean);
+        //    average = average / ((double) size / (double)stripes);
+        //}
 
     _metrics[measurement].Mean = average;
     _metrics[measurement].StandardDeviation = sqrt(sum / _metrics[measurement].SampleCount);
@@ -813,7 +812,7 @@ static uint64_t MeasureMainMemory(int * arguments)
 
     dummy++;
 
-    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+    return (GetUint64Value(low2, high2) - GetUint64Value(low1, high1)) / ((double)size / (double)stride);
 }
 
 static uint64_t MeasureBackToBackLoad(int * arguments)
