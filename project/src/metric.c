@@ -25,7 +25,7 @@
 #define ONE_MB (ONE_KB * ONE_KB)
 #define BLOCK_INDEX_COUNT 10
 #define PAGE_SIZE (4 * ONE_KB)
-#define ONE_GB (128 * ONE_KB * ONE_KB)
+#define ONE_GB (256 * ONE_KB * ONE_KB)
 
 static struct METRIC
 {
@@ -46,7 +46,7 @@ static struct METRIC
 
 struct Node
 {
-    char Data[50000];
+    char Data[500];
     struct Node * Next;
 };
 
@@ -83,7 +83,12 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Memory 22 S1",
     "Memory 23 S1",
     "Memory 24 S1",
-   
+    "Memory 25 S1",
+    "Memory 26 S1",
+    "Memory 27 S1",
+    "Memory 28 S1",
+    "Memory 29 S1",
+
     "Memory 10 S2",
     "Memory 11 S2",
     "Memory 12 S2",
@@ -99,6 +104,11 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Memory 22 S2",
     "Memory 23 S2",
     "Memory 24 S2",
+    "Memory 25 S2",
+    "Memory 26 S2",
+    "Memory 27 S2",
+    "Memory 28 S2",
+    "Memory 29 S2",
 
     "Memory 10 S3",
     "Memory 11 S3",
@@ -115,6 +125,11 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Memory 22 S3",
     "Memory 23 S3",
     "Memory 24 S3",
+    "Memory 25 S3",
+    "Memory 26 S3",
+    "Memory 27 S3",
+    "Memory 28 S3",
+    "Memory 29 S3",
 
     "Memory 10 S4",
     "Memory 11 S4",
@@ -131,6 +146,11 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Memory 22 S4",
     "Memory 23 S4",
     "Memory 24 S4",
+    "Memory 25 S4",
+    "Memory 26 S4",
+    "Memory 27 S4",
+    "Memory 28 S4",
+    "Memory 29 S4",
 
     "Memory 10 S5",
     "Memory 11 S5",
@@ -147,6 +167,11 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Memory 22 S5",
     "Memory 23 S5",
     "Memory 24 S5",
+    "Memory 25 S5",
+    "Memory 26 S5",
+    "Memory 27 S5",
+    "Memory 28 S5",
+    "Memory 29 S5",
 
     "L1 Cache",
     "L2 Cache",
@@ -239,14 +264,14 @@ extern void InitializeMetrics(int sampleCount)
         _metrics[i].Arguments[0] = i;
     }
 
-    stride = 32;
+    stride = 256;
     
     for (i = 0; i < 5; i++)
     {
         int j;
-        size = 1024;
+        size = 256;
 
-        for (j = MEM_INITIAL + 15 * i; j < MEM_INITIAL + 15 * i + 15; j++)
+        for (j = MEM_INITIAL + 20 * i; j < MEM_INITIAL + 20 * i + 20; j++)
         {
             _metrics[j].Measure = MeasureMainMemory;
             _metrics[j].Arguments = calloc(2, sizeof(int));
@@ -787,7 +812,7 @@ static uint64_t MeasureMainMemory(int * arguments)
     GetRdtscpValue(&low2, &high2);    
 
     dummy++;
-    
+
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 

@@ -37,7 +37,12 @@ enum MEASUREMENT
     MEM_22_S1,
     MEM_23_S1,
     MEM_24_S1,
-    
+    MEM_25_S1,
+    MEM_26_S1,
+    MEM_27_S1,
+    MEM_28_S1,
+    MEM_29_S1,
+
     MEM_10_S2,
     MEM_11_S2,
     MEM_12_S2,
@@ -53,7 +58,12 @@ enum MEASUREMENT
     MEM_22_S2,
     MEM_23_S2,
     MEM_24_S2,
-    
+    MEM_25_S2,
+    MEM_26_S2,
+    MEM_27_S2,
+    MEM_28_S2,
+    MEM_29_S2,
+
     MEM_10_S3,
     MEM_11_S3,
     MEM_12_S3,
@@ -69,7 +79,12 @@ enum MEASUREMENT
     MEM_22_S3,
     MEM_23_S3,
     MEM_24_S3,
-    
+    MEM_25_S3,
+    MEM_26_S3,
+    MEM_27_S3,
+    MEM_28_S3,
+    MEM_29_S3,
+
     MEM_10_S4,
     MEM_11_S4,
     MEM_12_S4,
@@ -85,7 +100,12 @@ enum MEASUREMENT
     MEM_22_S4,
     MEM_23_S4,
     MEM_24_S4,
-    
+    MEM_25_S4,
+    MEM_26_S4,
+    MEM_27_S4,
+    MEM_28_S4,
+    MEM_29_S4,
+
     MEM_10_S5,
     MEM_11_S5,
     MEM_12_S5,
@@ -100,8 +120,12 @@ enum MEASUREMENT
     MEM_21_S5,
     MEM_22_S5,
     MEM_23_S5,
-   
-    
+    MEM_24_S5,
+    MEM_25_S5,
+    MEM_26_S5,
+    MEM_27_S5,
+    MEM_28_S5,
+
     MEM_FINAL,
 
     L1_CACHE,
