@@ -281,7 +281,7 @@ extern void InitializeMetrics(int sampleCount)
             size = size << 1;
         }
 
-        stride = stride << 1;
+        stride = stride << 2;
     }
 
     pthread_mutex_init(&_mutex, NULL);
@@ -837,20 +837,20 @@ static uint64_t MeasureBackToBackLoad(int * arguments)
 
 static uint64_t MeasureL1Cache(int * arguments)
 {
-    const int INT_COUNT = 10;
+    const int INT_COUNT = 50;
 
     unsigned int low1, high1, low2, high2;
     int i;
-    int start = GetPseudoRand() % ONE_GB - INT_COUNT; //GetPseudoRandomBlockNumber();
+    //int start = GetPseudoRand() % ONE_GB - INT_COUNT; //GetPseudoRandomBlockNumber();
 
-    for (i = start; i < INT_COUNT; i++)
+    for (i = 0; i < INT_COUNT; i++)
     {
-        _memory[i] = GetPseudoRand() % INT_MAX;
+        _memory[i] = 0x55AA55AA;//GetPseudoRand() % INT_MAX;
     }
 
     GetRdtscpValue(&low1, &high1);
 
-    _dummy = _memory[start + (INT_COUNT >> 1)];
+    _dummy = _memory[(INT_COUNT >> 1)];
 
     GetRdtscpValue(&low2, &high2);
 
