@@ -25,6 +25,7 @@
 #define ONE_MB (ONE_KB * ONE_KB)
 #define BLOCK_INDEX_COUNT 10
 #define PAGE_SIZE (4 * ONE_KB)
+#define ONE_GB (128 * ONE_KB * ONE_KB)
 
 static struct METRIC
 {
@@ -66,7 +67,28 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "PThread",
     "Fork Context Switch",
     "PThread Context Switch",
-    "Main Memory",
+    
+    "Memory 8",
+    "Memory 9",
+    "Memory 10",
+    "Memory 11",
+    "Memory 12",
+    "Memory 13",
+    "Memory 14",
+    "Memory 15",
+    "Memory 16",
+    "Memory 17",
+    "Memory 18",
+    "Memory 19",
+    "Memory 20",
+    "Memory 21",
+    "Memory 22",
+    "Memory 23",
+    "Memory 24",
+    "Memory 25",
+    "Memory 26",
+    "Memory 27",
+    
     "L1 Cache",
     "L2 Cache",
     "Back-to-back Latency",
@@ -76,8 +98,8 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
 };
 
 static int _dummy;
-static int _blocks[BLOCK_COUNT][ONE_KB];
 static struct Node  _headNode;
+static int *  _memory[ONE_GB];
 
 static pthread_mutex_t _mutex;
 static pthread_cond_t _condition;
@@ -116,7 +138,13 @@ extern void InitializeMetrics(int sampleCount)
 {
     int i;
     struct Node * node;
-    
+    int argument;
+
+    for (i = 0; i < ONE_GB; i++)
+    {
+        _memory[i] = calloc(1, sizeof(int));
+    }
+
     for (i = 0; i < MEASUREMENT_COUNT; i++)
     {
         _metrics[i].Max = 0;
@@ -135,7 +163,7 @@ extern void InitializeMetrics(int sampleCount)
     _metrics[PTHREAD].Measure = MeasurePthread;
     _metrics[FORK_CONTEXT_SWITCH].Measure = MeasureForkContextSwitch;
     _metrics[PTHREAD_CONTEXT_SWITCH].Measure = MeasurePthreadContextSwitch;
-    _metrics[MAIN_MEMORY].Measure = MeasureMainMemory;
+
     _metrics[L1_CACHE].Measure = MeasureL1Cache;
     _metrics[L2_CACHE].Measure = MeasureL2Cache;
     _metrics[BACK_TO_BACK].Measure = MeasureBackToBackLoad;
@@ -148,6 +176,16 @@ extern void InitializeMetrics(int sampleCount)
         _metrics[i].Measure = MeasureProcedureCall;
         _metrics[i].Arguments = calloc(1, sizeof(int));
         _metrics[i].Arguments[0] = i;
+    }
+
+    argument = 64;
+    for (i = MEM_INITIAL; i <= MEM_FINAL; i++)
+    {
+        _metrics[i].Measure = MeasureMainMemory;
+        _metrics[i].Arguments = calloc(1, sizeof(int));
+        _metrics[i].Arguments[0] = argument;
+
+        argument = argument << 1;
     }
 
     pthread_mutex_init(&_mutex, NULL);
@@ -178,6 +216,16 @@ extern void FinalizeMetrics(void)
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
         free(_metrics[i].Arguments);
+    }
+
+    for (i = MEM_INITIAL; i <= MEM_FINAL; i++)
+    {
+        free(_metrics[i].Arguments);
+    }
+
+    for (i = 0; i < ONE_GB; i++)
+    {
+        free(_memory[i]);
     }
 
     while (node->Next != NULL)
@@ -631,37 +679,39 @@ static int GetPseudoRandomBlockNumber(void)
 
 static void ClearCache(void)
 {
-    int i, j;
+    int i;
 
-    for (i = 0; i < BLOCK_COUNT; i++)
+    for (i = 0; i < ONE_GB; i++)
     {
-        for (j = 0; j < ONE_KB; j++)
-        {
-            _blocks[i][j] = i * j;
-        }
+        *_memory[i] = i;
     }
 }
 
 static uint64_t MeasureMainMemory(int * arguments)
 {
     unsigned int low1, high1, low2, high2;
-    int index = GetPseudoRand() % 8000000;
     int dummy;
-    int * temp = calloc(8000000, sizeof(int));
-
+    int limit = arguments[0];
+    int i, j;
 
     GetRdtscpValue(&low1, &high1);
 
-    dummy = temp[index];
+    for (i = 0; i <= limit >> 1; i++)
+    {
+        if (i % 1 == 1)
+        {  
+            dummy = *_memory[i++];
+        }
+        else
+        {
+            dummy = *_memory[limit - j--];
+        }
+    } 
 
     GetRdtscpValue(&low2, &high2);    
 
     dummy++;
     
-    free(temp);
-
-    ClearCache();    
-
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
@@ -691,16 +741,16 @@ static uint64_t MeasureL1Cache(int * arguments)
 
     unsigned int low1, high1, low2, high2;
     int i;
-    int blockNumber = GetPseudoRand() % BLOCK_COUNT; //GetPseudoRandomBlockNumber();
+    int start = GetPseudoRand() % ONE_GB - INT_COUNT; //GetPseudoRandomBlockNumber();
 
-    for (i = 0; i < INT_COUNT; i++)
+    for (i = start; i < INT_COUNT; i++)
     {
-        _blocks[blockNumber][i] = GetPseudoRand() % INT_MAX;
+        *_memory[i] = GetPseudoRand() % INT_MAX;
     }
 
     GetRdtscpValue(&low1, &high1);
 
-    _dummy = _blocks[blockNumber][INT_COUNT >> 1];
+    _dummy = *_memory[start + (INT_COUNT >> 1)];
 
     GetRdtscpValue(&low2, &high2);
 
@@ -714,27 +764,19 @@ static uint64_t MeasureL2Cache(int * arguments)
     const int BLOCK_LENGTH = 50;
 
     unsigned int low1, high1, low2, high2;
-    int i, j, index;
-    int blocks[BLOCK_LENGTH];
-    int blockNumber, blockIndex;
+    int i, index;
 
     // Read into L1 and spill into L2
-    for (i = 0; i < BLOCK_LENGTH; i++)
+    for (i = 0; i < 20000; i++)
     {
-        blocks[i] = GetPseudoRand() % BLOCK_COUNT;
-
-        for (j = 0; j < ONE_KB; j = j + 10)
-        {
-            _blocks[blocks[i]][j] = GetPseudoRand() % INT_MAX;
-        }
+        *_memory[i] = GetPseudoRand() % INT_MAX;
     }
-
-    blockNumber = blocks[GetPseudoRand() % (BLOCK_LENGTH - 20)];
-    blockIndex = GetPseudoRand() % ONE_KB; 
+    
+    index = GetPseudoRand() % 1000; 
 
     GetRdtscpValue(&low1, &high1);
 
-    _dummy = _blocks[blockNumber][blockIndex];
+    _dummy = *_memory[index];
 
     GetRdtscpValue(&low2, &high2);
 
@@ -752,7 +794,7 @@ static uint64_t MeasureRamWrite(int * arguments)
 
     asm("cld\n"
         "rep stosq"
-        : : "D" (_blocks), "c" (sizeof(_blocks) >> 3), "a" (0) );
+        : : "D" (_memory), "c" (sizeof(_memory) >> 3), "a" (0) );
 
     GetRdtscpValue(&low2, &high2);
 
@@ -768,7 +810,7 @@ static uint64_t MeasureRamRead(int * arguments)
 
     asm("cld\n"
         "rep lodsq"
-        : : "S" (_blocks), "c" (sizeof(_blocks) >> 3) : "%eax");
+        : : "S" (_memory), "c" (sizeof(_memory) >> 3) : "%eax");
 
     GetRdtscpValue(&low2, &high2);
 
