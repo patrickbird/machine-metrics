@@ -68,27 +68,86 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Fork Context Switch",
     "PThread Context Switch",
     
-    "Memory 8",
-    "Memory 9",
-    "Memory 10",
-    "Memory 11",
-    "Memory 12",
-    "Memory 13",
-    "Memory 14",
-    "Memory 15",
-    "Memory 16",
-    "Memory 17",
-    "Memory 18",
-    "Memory 19",
-    "Memory 20",
-    "Memory 21",
-    "Memory 22",
-    "Memory 23",
-    "Memory 24",
-    "Memory 25",
-    "Memory 26",
-    "Memory 27",
-    
+    "Memory 10 S1",
+    "Memory 11 S1",
+    "Memory 12 S1",
+    "Memory 13 S1",
+    "Memory 14 S1",
+    "Memory 15 S1",
+    "Memory 16 S1",
+    "Memory 17 S1",
+    "Memory 18 S1",
+    "Memory 19 S1",
+    "Memory 20 S1",
+    "Memory 21 S1",
+    "Memory 22 S1",
+    "Memory 23 S1",
+    "Memory 24 S1",
+   
+    "Memory 10 S2",
+    "Memory 11 S2",
+    "Memory 12 S2",
+    "Memory 13 S2",
+    "Memory 14 S2",
+    "Memory 15 S2",
+    "Memory 16 S2",
+    "Memory 17 S2",
+    "Memory 18 S2",
+    "Memory 19 S2",
+    "Memory 20 S2",
+    "Memory 21 S2",
+    "Memory 22 S2",
+    "Memory 23 S2",
+    "Memory 24 S2",
+
+    "Memory 10 S3",
+    "Memory 11 S3",
+    "Memory 12 S3",
+    "Memory 13 S3",
+    "Memory 14 S3",
+    "Memory 15 S3",
+    "Memory 16 S3",
+    "Memory 17 S3",
+    "Memory 18 S3",
+    "Memory 19 S3",
+    "Memory 20 S3",
+    "Memory 21 S3",
+    "Memory 22 S3",
+    "Memory 23 S3",
+    "Memory 24 S3",
+
+    "Memory 10 S4",
+    "Memory 11 S4",
+    "Memory 12 S4",
+    "Memory 13 S4",
+    "Memory 14 S4",
+    "Memory 15 S4",
+    "Memory 16 S4",
+    "Memory 17 S4",
+    "Memory 18 S4",
+    "Memory 19 S4",
+    "Memory 20 S4",
+    "Memory 21 S4",
+    "Memory 22 S4",
+    "Memory 23 S4",
+    "Memory 24 S4",
+
+    "Memory 10 S5",
+    "Memory 11 S5",
+    "Memory 12 S5",
+    "Memory 13 S5",
+    "Memory 14 S5",
+    "Memory 15 S5",
+    "Memory 16 S5",
+    "Memory 17 S5",
+    "Memory 18 S5",
+    "Memory 19 S5",
+    "Memory 20 S5",
+    "Memory 21 S5",
+    "Memory 22 S5",
+    "Memory 23 S5",
+    "Memory 24 S5",
+
     "L1 Cache",
     "L2 Cache",
     "Back-to-back Latency",
@@ -99,7 +158,7 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
 
 static int _dummy;
 static struct Node  _headNode;
-static int *  _memory[ONE_GB];
+static int   _memory[ONE_GB];
 
 static pthread_mutex_t _mutex;
 static pthread_cond_t _condition;
@@ -139,11 +198,13 @@ extern void InitializeMetrics(int sampleCount)
     int i;
     struct Node * node;
     int argument;
+    int stride, size;
 
-    for (i = 0; i < ONE_GB; i++)
-    {
-        _memory[i] = calloc(1, sizeof(int));
-    }
+    //for (i = 0; i < ONE_GB; i++)
+    //{
+    //    _memory[i] = calloc(1, sizeof(int));
+    //    *_memory[i] = 0xAA55AA55;
+    //}
 
     for (i = 0; i < MEASUREMENT_COUNT; i++)
     {
@@ -178,14 +239,25 @@ extern void InitializeMetrics(int sampleCount)
         _metrics[i].Arguments[0] = i;
     }
 
-    argument = 64;
-    for (i = MEM_INITIAL; i <= MEM_FINAL; i++)
+    stride = 32;
+    
+    for (i = 0; i < 5; i++)
     {
-        _metrics[i].Measure = MeasureMainMemory;
-        _metrics[i].Arguments = calloc(1, sizeof(int));
-        _metrics[i].Arguments[0] = argument;
+        int j;
+        size = 1024;
 
-        argument = argument << 1;
+        for (j = MEM_INITIAL + 15 * i; j < MEM_INITIAL + 15 * i + 15; j++)
+        {
+            _metrics[j].Measure = MeasureMainMemory;
+            _metrics[j].Arguments = calloc(2, sizeof(int));
+            _metrics[j].Arguments[0] = stride;
+            _metrics[j].Arguments[1] = size;
+
+            size = size << 1;
+            printf("%d\n", j);
+        }
+
+        stride = stride << 1;
     }
 
     pthread_mutex_init(&_mutex, NULL);
@@ -223,10 +295,10 @@ extern void FinalizeMetrics(void)
         free(_metrics[i].Arguments);
     }
 
-    for (i = 0; i < ONE_GB; i++)
-    {
-        free(_memory[i]);
-    }
+    //for (i = 0; i < ONE_GB; i++)
+    //{
+    //    free(_memory[i]);
+    //}
 
     while (node->Next != NULL)
     {
@@ -312,7 +384,17 @@ static void UpdateMeasurementCalculations(enum MEASUREMENT measurement)
     {
         difference = _metrics[measurement].Samples[i] - average;
         sum += (difference * difference);
+    
     }
+
+        if (measurement >= MEM_INITIAL && measurement <= MEM_FINAL)
+        {
+            int stripes = _metrics[measurement].Arguments[0];
+            int size = _metrics[measurement].Arguments[1];
+
+            average = average - _metrics[RDTSCP].Mean;// - ((size/stripes) * _metrics[LOOP].Mean);
+            average = average / ((double) size / (double)stripes);
+        }
 
     _metrics[measurement].Mean = average;
     _metrics[measurement].StandardDeviation = sqrt(sum / _metrics[measurement].SampleCount);
@@ -683,7 +765,7 @@ static void ClearCache(void)
 
     for (i = 0; i < ONE_GB; i++)
     {
-        *_memory[i] = i;
+        _memory[i] = i;
     }
 }
 
@@ -691,21 +773,15 @@ static uint64_t MeasureMainMemory(int * arguments)
 {
     unsigned int low1, high1, low2, high2;
     int dummy;
-    int limit = arguments[0];
-    int i, j;
-
+    int stride = arguments[0];
+    int size = arguments[1];
+    int i;
+    //int index = GetPseudoRand() % step;
     GetRdtscpValue(&low1, &high1);
 
-    for (i = 0; i <= limit >> 1; i++)
+    for (i = 0; i < size; i = i + stride)
     {
-        if (i % 1 == 1)
-        {  
-            dummy = *_memory[i++];
-        }
-        else
-        {
-            dummy = *_memory[limit - j--];
-        }
+        dummy = _memory[i];
     } 
 
     GetRdtscpValue(&low2, &high2);    
@@ -745,12 +821,12 @@ static uint64_t MeasureL1Cache(int * arguments)
 
     for (i = start; i < INT_COUNT; i++)
     {
-        *_memory[i] = GetPseudoRand() % INT_MAX;
+        _memory[i] = GetPseudoRand() % INT_MAX;
     }
 
     GetRdtscpValue(&low1, &high1);
 
-    _dummy = *_memory[start + (INT_COUNT >> 1)];
+    _dummy = _memory[start + (INT_COUNT >> 1)];
 
     GetRdtscpValue(&low2, &high2);
 
@@ -769,14 +845,14 @@ static uint64_t MeasureL2Cache(int * arguments)
     // Read into L1 and spill into L2
     for (i = 0; i < 20000; i++)
     {
-        *_memory[i] = GetPseudoRand() % INT_MAX;
+        _memory[i] = GetPseudoRand() % INT_MAX;
     }
     
     index = GetPseudoRand() % 1000; 
 
     GetRdtscpValue(&low1, &high1);
 
-    _dummy = *_memory[index];
+    _dummy = _memory[index];
 
     GetRdtscpValue(&low2, &high2);
 
