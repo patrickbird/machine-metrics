@@ -1,0 +1,61 @@
+A Fast File System for UNIX
+---------------------------
+
+Seek time is a problem
+
+Problems
+- Random data block placement in aging file system
+- Inodes allocated far from data blocks
+- Low bandwidth utilization
+- Small max file size
+- Waste from large block size
+- Recovery
+- Device oblivious
+
+Solutions
+- allocate data in same file close together (Cylinder groups)
+- inodes and data close together
+- larger block size (1024 to 4096)
+- larger block size (w/4096, only need two levels of indirection to reach 2^32)
+- fragments (different sizes)
+- replicated superblocks (superblocks not placed in same track to minimize effect of platter failures)
+
+FFS has a two-level allocator, global and local.  What does the global allocator try to achieve?
+- localize related data within a cylinder group (e.g. all inodes for a directory in same cyl group)
+- distribute unrelated data across cylinder groups (e.g. new directories placed in cyl group with >avg #inodes)
+
+
+What does the local allocator try to achieve?
+- opitmal local placement
+	- rotationally optimal block in same cylinder
+	- block in same cyl group
+	- search through cyl groups
+
+What is one requirement of the new FFS?
+- requires a minimum of free space so that cul block allocations can be done: 10%
+- this is why you will see some file systems with >100% utilization
+
+
+Log-structured FS
+-----------------
+
+What is the main point of this paper?
+- file system designed to exploit h/w and workload trends
+
+What are these trends?
+- disk b/w is scaling, but latency is not
+- large main memories
+	- large file buffer caches
+	- absorb a greater fraction of read requests
+	- use for write buffers as well
+	- coalesce small writes into large writes
+- workloads
+	- small file access
+- LFS spawned a vocal controversy between Ousterhout and Seltzer about whether LFS was better than an extent-based FFS
+- The main complaint was that cleaning required too much overhead, and that it was a source of hidden costs.
+- The issue has never been settled definitely, although most file system today are extent-based FFS rather than LFS.
+
+Journaling file system is like a hybrid between log and extent based systems
+
+
+

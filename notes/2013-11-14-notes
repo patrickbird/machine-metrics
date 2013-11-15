@@ -1,0 +1,13 @@
+What is the problem?
+- FSes typically use sync writes to ensure consistency of updates to metadata
+- Solve "update dependency" problem
+
+What is an update dependency
+
+Deleting a file
+- Correct sequence is
+
+What is the rule of thumb when considering the update dependency?
+- It is OK to waste some inode or blocks
+- But you cannot corrupt or garbage data pointed by something
+
