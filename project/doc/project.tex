@@ -72,7 +72,7 @@
         \normalfont \normalsize \textsc{} \\ [25pt]
         \horrule{0.5pt} \\[0.4cm]
         \huge CSE 221 Final Project \\
-        \huge       Draft 1         \\
+        \huge       Draft 2         \\
         \horrule{2pt} \\[0.5cm]
 }
 \author{
@@ -415,44 +415,85 @@ The statistical metrics for the various context switching are as follows.  Again
 
 \section{Memory Operations}
 
-
-
 \subsection{Main Memory}
 
 \subsubsection{Methodology}
 
-To perform memory measurements, there needed to be some memory store instantiated with some signicant size.  Otherwise, the timings could all be for naught since the compiler might choose to cache the variable instead.  For instance, for measuring a 32-bit integer from main memory, I did not just want to \textit{malloc} four bytes in main memory and then measure the read.  For all I know, the compiler with the OS may choose to cache this memory upon instantiation.
+One of the main challenges about reading from main memory is trying to figure out how to force the process to actually read from main memory.  Since a CPU cache exists, the kernel will attempt to read data into it that it think might be referenced later.  For instance, the first memory operation to be estimated and measured is reading a series of integers from memory.  Creating an array on the heap might bring it into cache upon allocation.  If not initially, it will most assuredly bring it to cache after the first reference.  Along with this value, it could potentially bring its neighboring addresses in too because of locality of reference.  So, another reference to this same spot in memory in the next hundred or so loops will read the value from cache instead of main memory.
 
-One of the main challenges about reading from main memory is trying to figure out how to force the process to actually read from main memory.  Since a CPU cache exists, the OS will attempt to read into it data memory that it has calculated might be referenced later.  For instance, the first memory operation to be estimated and measured is reading a single 4-byte integer from memory.  Creating a four byte integer on the heap and referencing it might be all well and good for the first access.  But after that, the kernel may have brought this integer along with its neighboring memory into the cache.  Thus, another reference to this same spot in memory in the next hundred or so loops will read the value from cache instead of main memory.
+So these circumstances pose a couple of problems and they need to be dealt with to accurately measure the different memory entitites.  First of all, when trying to measure main memory, the data structure needs to be of significant size that would make it cumbersome to load the entire thing into the cache.  And second of all, there must be a means of flushing the cache between each measurement to ensure that the next reference will be from memory.
 
-Since cache exists and memory readahead is implemented, there must be a method to randomly index into memory and read an arbitrary value.  Thus, for the memory tests, I created a two-dimensional integer array of size 1000 x 1024.  Thus, if laid out contiguously, the array would take up 4,096,000 bytes.  With this array, I can randomly index into it and hopefully gain good measurements by doing so.
+The caches that this system has are 32 KB for L1, 256 KB for L2 and 15 MB for L3.  Thus, I first start by creating a 1 GB static array before any measurements take place.  Having a block of memory this big will give me a greater chance of having the data referenced from main memory.
 
-To randomly index into the array, I utilize the \textit{rand()} function with the current time as the seed.  Each time I access the random function, I bit XOR it with the previous random number time in order for the pseudo-random number not to be based on time\textsubscript{n} and time\textsubscript{n-1}.  So for each read timing, the software randomly calculates the block number (0-999) and the byte offset (0-4096).  The calculations for pseudo-randomness is not part of either the estimation or the final measurement.
+%To randomly index into the array, I utilize the \textit{rand()} function with the current time as the seed.  Each time I access the random function, I bit XOR it with the previous random number time in order for the pseudo-random number to be based on time\textsubscript{n} and time\textsubscript{n-1}.  So for each read timing, the software randomly calculates an integer offset between 0 and 7,999,996.  The calculations for pseudo-randomness is not part of either the estimation or the final measurement.
 
-The measurement bounds for reading an integer from main meory is as follows.  The \textbf{RDTSCP} is read.  Then, a four-byte integer is retrieved from a pseudo-random index into the two dimensional array.  The \textbf{RDTSCP} is read again.  The difference is calculated and the measurement is performed 1000 times to calculate an average and other interesting metrics.  The loop to cycle through this measurement is outside the timing mechanism so it is not considered as part of the measurement itself.
+%After allocating memory and generating a random index, the first \textbf{RDTSCP} value is read.  Then, the four-byte integer is retrieved from a pseudo-random index in the array.  Then, the \textbf{RDTSCP} is read again.  After this, the memory is freed and the cache is cleared by iterating over a large array to hopefully clear out any lingering data.
+
+After allocating memory, the program steps through array sizes from 2\textsuperscript{8} to 2\textsuperscript{29} array sizes.  Though, one cannot just use a for loop to iterate through the elements since the CPU will leverage spacial locality and bring much of the data in memory.  One needs to stride through the different array sizes.  I utilizted different stride values from 256 to 8192 bytes.  There is a section after the main memory and cache sections that go into the results of striding.
+
+After striding through each, array, the difference is calculated and the measurement is performed 1000 times to calculate an average and other interesting metrics.  One of these metrics is the back-to-back load latency.  Larry McEvoy and Carl Staelin define back-to-back load latency as follows:
+\begin{addmargin}[1em]{2em}% 1em left, 2em right
+Back-to-back-load latency is the time that each load takes, assuming that the instructions before and after are also cache-missing loads.\footnote{McVoy, L., and Staelin, C.  "lmbench: Portable Tools for Performance Analysis" Proceedings of the USENIX 1996 Annual Technical Conference, January 1996, p. 8.}
+\end{addmargin}
+
+To measure the load, I followed the example in the aforementioned paper and created a simple linked list of 1000 nodes.  In the \textit{MeasureBackToBackLoad()} function, the timer is first read and the 1000 item linked list is traversed from begining to end.  After the entire list was traversed, the timer was stopped, and the cache was cleared in the same way as the \textit{MeasureMainMemory()} function.
 
 \subsubsection{Estimation}
 
-Upon executing the instruction to read the four byte integer from memory, the caches will be checked first.  If there are misses at all three levels, the data will be fetched from main memory and will most likely be put into L1 cache.  As mentioned before, a pseudo random index into a large block of memory will hopefully cause this to happen each time memory is referenced so a valid measurement can exist.
+As far as estimating both memory latency and back-to-back load latency, the costs will be shared amongst both hardware and software, but the hardware cost will dominate.
 
-Since the memory is clocked at 1333 MHz.  A single read will have some overhead associated with the timing mechanism itself ~ 30 CPU clock cycles, a double index into an array ~ 4 CPU clock cycles, and then the memory access itself.
+In the case of memory latency, the instruction to read the integers from memory will cause the caches to be checked first.  There will hopefully be misses at all three levels, and the data will be fetched from main memory and will most likely be put into L1 cache.
 
-To measure the access speed of main memory, we'll also have to take into account the L1, L2, and L3 cache memory access times as well.  A miss at the first cache level will probably be on the magnitude around 10 clock cycles.  At the next level, it is more expensive, say 30 clock cycles.  At the last level, say it is about 60 clock cycles.  After that, a read from memory is in order.  A read from memory will cause a translation in the MMU and a read.  Because there is a scale factor between the CPU clock and the memory clock, the access for an four-byte integer will take about 200 cycles.  In all, I estimate that the memory read will take about 200+10+30+60 clock cyles or about 300 clock cycles.
+The actual code to read the memory is quite minimal and maybe only a few clock cycles of indexing into an array.  A check and a miss at L1 cache will probably cost 10 cycles.  A check and a miss at L2 will cost around twice that at 20 cycles.  And a check and a miss at L3 will cost 50 cycles.  After that, the CPU will need to fetch from main memory.  There will be some hardware latency to do virtual address translation, which might take around 20 CPU cycles.  Then the read itself because of waiting to refresh might take around 50 cycles.  The read itself will take 10.  All in all, I estimate the hardware cost to be the following
+
+\begin{center}
+\begin{tabular}{ l|l }
+  10 cycles & L1 Miss \\
+  20 cycles & L2 Miss \\
+  50 cycles & L3 Miss \\
+  20 cycles & Address Translation \\
+  50 cycles & Refreshing Cells \\
+  10 cycles & Memory Read \\
+  \hline
+  160 cycles & Total
+\end{tabular}
+\end{center}
+
+As far as back to back load is concerned, I think the cost will be about 20 cycles greater since the L1 cache lines might still be in the process of being written in.  Thus, I estimate back-to-back load to be about 180 clock cycles.
+
+The kernel is not really involved in the read from main memory.  It is mainly handled by the CPU and MMU.  However, because of uncertaintanties, I will put a cost of 10 clock cycles for the kernel.
+
+The two estimates are:
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l |}
+    \hline
+    Type & Hardware Estimate & Software Estimate & Total Estimate & Average Measurement \\      \hline
+    Memory Latency & 160 cycles & 10 cycles & 170 cyles & 206.2 cycles (103 ns) \\ 
+    Back-to-back Load & 180 cycles & 10 cycles & 190 cycles & 215.0 cycles (108 ns) \\
+    \hline
+    \end{tabular}
+\end{center}
 
 
 \subsubsection{Measurement}
 
-To access a single four-byte integer from main memory took on average 241 CPU cycles or 120 ns.  It was pleasing to see that my estimate was within a certain amount.  The max ws fairly high at 6323 cycles.  Some of these larger values can probably be understood as part of a context switch.  These upper values have also thrown off the standard deviation.  Needless to say though that the measurements are within a reasonable number for accessing a single integer from main memory.
+To access a single four-byte integer from main memory took on average 206 CPU cycles or 103 ns.  It was somewhat pleasing to see that my estimate was within 30\%.  The max was quite higher at 1550 cycles.  This value could be understood as maybe a short context switch.  The measurements are within a reasonable number for accessing a single integer from main memory.
 
 
 \begin{center}
-    \begin{tabular}{ | l | l | l | l | l | l |}
+    \begin{tabular}{ |l | l | l | l | l | l | l |}
     \hline
-    No. of Samples & First Iteration & Min & Max & Mean & Std Dev \\ \hline
-    1000 iterations & 1461 cycles & 178 cycles & 6323 cycles & 241.2 cycles & 247.7  cycles \\ 
+    Measurement & \# Samples & First Iteration & Min & Max & Mean & Std Dev \\ \hline
+    Memory & 1000 it. & 7642 cycles & 178 cycles & 1550 cycles & 206.2 cycles & 248.1  cycles \\ 
+    Back-to-back Load & 1000 it. & 269 cycles & 202 cycles & 317 cycles & 215.0 cycles & 15 cycles \\
     \hline
     \end{tabular}
 \end{center}
+
+Measuring the back-to-back load latency was an interesting exercise.  My very first implementation went extremely fast.  It was on the order of 10,000 - 20,000 clock cycles to traverse a 1000 node linked list.  After considering it though, it did not seem that difficult to reason.  All the linked list node structure's definition was a pointer to the next node.  Thus, it was an eight byte field that pointed to the next eight byte field.  When I created the list at the beginning of the program, \textit{calloc()} most likely allocated the memory contiguously.  Thus, reading the list front to back allowed for any locality and readahead optimization by the kernel.  So, in a way, the linked list most likely looked like an array in memory.
+
+So, to take another stab at it, I redefined the structure to include a 50 KB data member.  Adding this field gave my linked list structure more weight which provided for more of a random scattering into memory.  After that, I saw more realistic numbers for back-to-back load.  Although, it was not as costly as either the authors of the lmbench paper or I thought it would be.  In fact, it just added on another 5 clock cycles to the main memory measurement.  After subtracting the loop and timings overheads, the average timing was 215 cycles or 108 ns.  The reasoning for the speedup in back-to-back load could potentially be the fact that cache technology and writes are faster in general than from when the paper was written.
 
 \subsection{L1 \& L2 Caches}
 
@@ -460,17 +501,27 @@ To access a single four-byte integer from main memory took on average 241 CPU cy
 
 Trying to force a read from L1 cache is somewhat tricky.  There is no guarantee that the variable that one reads will actually be the one in cache.  However, we can get fairly sure.
 
-To read a integer from L1 cache, I start by reading fifty integers from a static array into L1 cache by way of a for loop.  I could not just define an integer in the function since that would put it in a register.  So, fifty integer are read into L1 cache.  Afterwards, I read \textbf{RDTSCP} and then index to the 25th element of the array.  This element should be in L1 cache.  Then, I read \textbf{RDTSCP} again to find how long the read took.
+To read a integer from L1 cache, I start by reading fifty integers from a static array into L1 cache by way of a \textbf{for} loop.  I could not just define an integer in the function since that would put it in a register.  So, fifty integer are read into L1 cache.  Afterwards, I read \textbf{RDTSCP} and then index to the 25th element of the array.  This element should be in L1 cache.  Then, I read \textbf{RDTSCP} again to find how long the read took.
 
 To read an integer from L2 cache was a little more difficult to figure out than L1.  Somehow, the data I would be referencing would have to be forced out of L1 and drop into L2 without going farther into the L3 cache or back to main memory.  The methodology for forcing a value to L2 continutes where L1 left off.
 
 The L1 size for this machine is 32 KB of data.  It also has 32 KB of instruction cache but that does not pertain to this measurement.  The L2 cache is much larger at 256 KB.  To measure L2, data needs to be read into L1 where it would "spill over" into L2 from where I could read.
 
-A large static two-dimensional integer array (5000x1024) was created for this purpose among others.  All in all, this array measures to be around 20 MB. The \textit{MeasureL2Cache} function randomly indexes into this array and reads 50 different 4 KB blocks (or ~ 200 KB) into the L1 and consequently into the L2 cache.  After these 50 blocks are read in, a random block from the first 30 are indexed into again for the integer read.  The reasoning is that the last 20 blocks will more than cover the 32 KB of L1 cache and that hopefully by reading an integer from the first 30 will be from the L2 cache. 
+A large static two-dimensional integer array (5000x1024) was created for this purpose among others.  All in all, this array measures to be around 20 MB. The \textit{MeasureL2Cache} function randomly indexes into this array and reads 50 different 4 KB blocks (or ~ 200 KB) into the L1 and consequently into the L2 cache.  After these 50 blocks are read in, a random block from the first 30 are indexed into again for the integer read.  The reasoning is that the last 20 blocks will more than cover the 32 KB of L1 cache and that hopefully by reading an integer from the first 30, it will be from the L2 cache. 
 
 \subsubsection{Estimation}
 
-L1 reads are very fast and will be hardly more than the time it takes to read \textbf{RDTSCP}.  Thus, I estimate that an L1 read will take three clock cycles.  L2, on the other hand, will take much longer.  And not just twice as long.  There is an L1 cache miss involved and depending on how far away the L2 cache is, I estimate that L2 will rather take five times as long or about 15 clock cycles.
+Estimating L1 and L2 cache hits and misses is entirely hardware and not kernel specific.  L1 reads are very fast and will be hardly more than the time it takes to read the \textbf{RDTSCP}.  Thus, I estimate that an L1 hit will take three clock cycles.  L2, on the other hand, will take a good bit longer.  And not just twice as long.  There is an L1 cache miss involved and depending on how far away the L2 cache is, I estimate that L2 will rather take five times as long or about 15 clock cycles.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l |}
+    \hline
+    Type & Hardware Estimate & Software Estimate & Total Estimate & Average Measurement \\      \hline
+    L1 Cache & 3 cycles & 0 cycles & 3 cyles & 10 cycles (5 ns) \\ 
+    L2 Cache & 15 cycles & 0 cycles & 15 cycles & 33.8 cycles (16.5 ns) \\
+    \hline
+    \end{tabular}
+\end{center}
 
 \subsubsection{Measurement}
 
@@ -489,64 +540,254 @@ The L2 cache measurement was very close to the estimate as well.  The average L2
     \end{tabular}
 \end{center}
 
+\subsection{RAM, L1, \& L2 Comparison with Arrays}
+
+As you can see in the below graph, there are steps to indicate both the L1, and L2 caches.  Because of the large amount of cache, we didn't observe a step up until about 2\textsuperscript{23} byte arrays.  This was mainly due to the locality of the striding.  The stride values would often overlap with each other which caused the steps to be seen in values greater than the actual cache values.
+
+Another step up around a 2\textsuperscript{24} array size.  From there, the graph would show L3 and main memory.
+
+\begin{center}
+\begin{tikzpicture}[domain=0:3]
+\begin{axis}[xlabel={log\textsubscript{2} array size}, ylabel={latency in clock cycles}]
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+
+    10      7.43     0
+    11      6.28     0
+    12      8.02     0
+    13      7.00     0
+    14      6.68     0
+    15      6.33
+    16      6.87
+    17      6.28
+    18      6.38
+    19      6.16
+    20      6.13
+    21      6.68
+    22      6.56
+    23      6.74
+    24      13.84
+    25      21.10
+    26      19.26
+    27      21.23
+    28      24.04
+};
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+    10      6.36     1
+    11      7.44     1
+    12      6.28     1
+    13      6.95     1
+    14      6.85     1
+    15      10.63
+    16      6.36
+    17      5.86
+    18      5.94
+    19      6.18
+    20      6.16
+    21      5.94
+    22      6.40
+    23      6.54
+    24      12.63
+    25      19.41
+    26      20.69
+    27      21.24
+    28      25.71
+};
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+    10      8.18     2
+    11      7.08    2
+    12      7.74     2
+    13      6.58     2
+    14      7.21     2
+    15      6.63
+    16      6.32
+    17      6.64
+    18      6.15
+    19      6.90
+    20      6.26
+    21      6.41
+    22      6.62
+    23      6.84
+    24      15.81
+    25      20.19
+    26      18.72
+    27      18.95
+    28      23.47
+};
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+    10      8.72     3
+    11      7.03    3
+    12      6.82     3
+    13      6.97     3
+    14      6.19     3
+    15      7.31
+    16      6.80
+    17      6.51
+    18      6.27
+    19      5.99
+    20      6.56
+    21      6.05
+    22      6.38
+    23      6.54
+    24      12.97
+    25      18.38
+    26      18.75
+    27      19.12
+    28      23.39
+};
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+    10      18.04    4
+    11      6.49    4
+    12      7.23     4
+    13      6.65     4
+    14      6.64     4
+    15      6.39
+    16      6.98
+    17      7.30
+    18      7.18
+    19      6.54
+    20      6.34
+    21      6.07
+    22      6.40
+    23      6.49
+    24      13.36
+    25      18.95
+    26      19.51
+    27      19.91
+    28      24.24
+};
+
+
+\end{axis}
+\end{tikzpicture}
+\end{center}
 
 \subsection{RAM Bandwidth}
 
 \subsubsection{Methodology}
 
-The methodology for RAM bandwidth is fairly straightforward.  In both cases, a double for loop is used to page through the 5000x1024 array.  In one case the program reads from it.  In the other case, it writes to it.  The \textbf{RDTSCP} instructions are placed before and after these for loops.
+The first, easy to implement function to read and write from memory would be to take a large array and iterate over it with a for loop.  The single instruction inside the loop would either be the read or the write.  Unfortunately, the loop and the branching would cause significant overhead to the measurement.  Even though, there is a previous measurement of the loop cost, I sought out a more efficient approach.
 
-In an attempt to remove any time latencies in the loop itself, I wrapped the \textit{MeasureRamWrite()} and \textit{MeasureRamRead()} functions with a GCC pragma to unroll the loops:
+From James Leiterman's book \textit{32\/64-Bit 80x86 Assembly Language Architecture}, he mentions the \textbf{REP STOSQ} and \textit{REP LODSQ} instructions.  The \textbf{STOSQ} and the \textbf{LODSQ} write and read 8-byte strings of bytes to and from memory, respectively.  The \textbf{REP} prefix informs the CPU to repeatedly perform the instruction for a count specified in the \textbf{RCX} register.  Peforming this instruction will streamline the instructions and remove some of the overhead in branching.
 
-\lstset{language=C}
-\begin{lstlisting}
-#pragma GCC optimize ("unroll-loops")
-\end{lstlisting}
+Thus, that is what the \textit{MeasureRamRead()} and \textit{MeasureRamWrite()} functions consist.  The \textbf{RDTSCP} calls wrap both the \textbf{REP STOSQ} and the \textbf{REP LODSQ} instructions.
 
 \subsubsection{Estimation}
 
+The memory has a maximum ideal speed of 1600 MHz.  However, because of the current CPU, the clock for the memory is configured to be 1333 MHz. The data bus is 64 bits wide with some additional bits for error code checking.  There are four memory channels per processor.  However, these channels are shared amongst cores and I don't forsee that the one core that my process is attached to will utilize all four memory channels.
+
+For instance, the Intel website\footnote{http://ark.intel.com/products/64594} specifies the maximum memory bandwidth to be 42.6 GB/s.  And this calculation can be figured out easily.  It takes the fastest DDR3 memory it can handle 1333 MHz, multiplies it by the number of memory channels (4) and then by the 8-byte data bus.
+
+However, these memory channels are shared amongst six cores on the processor.  And since this process will only be on one of the cores, it will probably only use one channel.  So my estimation will only be for one of the channels being utilized.
+
+Thus, we can take the maximum memory bandwidth that Intel provided and divide it by the number of channels (4) since our system is configured with DDR3 1333 MHz RAM.  So, the maximum memory bandwidth for one channel is 10.65 GB/s.
+
+The OS should not add too much overhead, but I will include about a 10\% overhead for it and other things.  So, I hope to reach 9.59 GB/s.
+
+\subsubsection{Measurement}
+
+For RAM read and RAM write, I observed the following measurements:
+
+For the data read operation, it took 5,360,451 clock cycles, or about 2.6 ms, to read from the 5000 x 1024 array on average.  The bandwidth for memory read would then be around:
+
+\begin{gather}
+bandwidth = 5000 blocks * 1024 elements * 4 bytes * \frac{2,000,053,000 Hz}{5,360,451 cycles} \\
+bandwidth = 7.641 GB/s
+\end{gather}
+
+For the data write operation, it took 5,344,615 clock cycles, or about 2.6 ms, to write to the 5000 x 1024 array.  Interestingily enough, this is the exact same time as the data read.  For a sanity check, I ran through the experiment multiple times and I get similar results each time.  The data read and data write are extremely close with one another.  Again the standard deviation is quite small ~ 158,450 clock cycles which is 3\% of the average.  The bandwidth would then be:
+
+\begin{gather}
+bandwidth = 5000 blocks * 1024 elements * 4 bytes * \frac{2,000,053,000 Hz}{5,344,615 cycles} \\
+bandwidth = 7.664 GB/s
+\end{gather}
+
+The write and read bandwidth are quite close with one another.  Unfortunately, the bandwidth is still outside my estimate of 9.64 GB/s.  One reason for lower bandwidth is that this process is bound to a particular core.  If there were a method to leverage all cores and write to memory at the same time, there might be a way to get a more optimized speed.  Also, there are many other services running on this computer.  Some of them are quite large - OpenStack Nova Compute, Swift Object Storage, MySQL, Apach Qpid, and a Windows Server VM.  And unfortunately, I do not have the authority to temporarily suspend these services.  Thus, being within 80\% of my estimate is not difficult to reason.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l | l |}
+    \hline
+     & \# of Samples & First Iteration & Min & Max & Mean & Std Dev \\
+    \hline
+    Read & 1000 iterations & 5,383,306 c. & 5,152,504 c. & 7,387,026 c. & 5,360,451 c. & 212,472 c. \\ 
+    Write & 1000 iterations & 4,925,780 c. & 5,142,160 c. & 6,415,861 c. & 5,344,615 c. & 198,980 c. \\ 
+    \hline
+    \end{tabular}
+\end{center}
+
+\subsection{Page Fault}
+
+\subsubsection{Methodology}
+
+To measure a page fault on this machine with 128 GB of main memory, I needed to create a file that's considerably large in the file system.  At least the file would need to be large enough for the kernel not to bring the entire thing into memory.  I also wanted to chose a size large enough so that I could seek to random points in the file and almost guarantee a page fault.
+
+Thus, the first thing that I did to prepare for this measurement is to generate a 300 GB file.  \textbf{fallocate} would be a good candidate to make a large file fast.  Unfortunately, this command only allocates block and marks them as unitialized.  Not to mention, I wanted to be sure that the file had true random data in it.
+
+Thus, I use the \textbf{dd} command to generate a 300GB file with data from \textit{/dev/urandom}.  The command took a while to perform - about 16 hours or so!
+
+After a random 300 GB file was in place, I was fairly sure that most of my calls to the \textit{MeasurePageFault()} function would indeed generate a page fault.  After entering the measure function, I open the file and generate a random seek position from 0 to 300 billion.  Next, the timer starts, and both \textit{fseek()} and \textit{fread()} are called.  Then the timer is read again for the final time.  This function is repeated a 1000 times.
+
+\subsubsection{Estimation}
+
+The hard drives that are mounted at /home are configured in a Dell PowerEdge RAID controller, H710P.  The two 1 TB HDDs are configured in a RAID 1 configuration meaning that disk reads can be performed in parallel for greater throughput.  Since this test is only measuring reading a single page fault, the RAID configuration should not benefit this test.
+
+The hardware cost is the most significant cost to this operation.  The cost of accessing main memory has already been measured to be about 100 ns on average.  The cost for reading from an HDD will be exponentially larger - probably more than 10,000 times more!  So the main memory measurement is just noise for this measurement and will not be considered.
+
+The hard drives are 7200 RPM which is 120 RPS, or once every 8.3 ms.  If the platter has to travel at least half that time on average, it will take roughly 4 ms just for the platter to spin to the right position.  Then there is the cost of moving the head and reading the data, which might be another 2 ms.
+
+As far as the OS cost would go, the OS will need to check the page table.  And after not finding it, it will attempt a system call to read from disk.  Like the main memory observation, the OS time to service a page fault will pale in comparison to the hardware cost involved.  However, for measurment's sake, I will estimate the page fault service time for the OS to be 100 ns or equivalent to the cost of reading from main memory.
+
+Thus, the total estimation and average measurement is:
 
 
+\begin{center}
+    \begin{tabular}{ | l | l | l | l |}
+    \hline
+    Hardware Estimate & Software Estimate & Total Estimate & Average Measurement \\      \hline
+    6 ms & 100 ns & ~ 6 ms & 19.8 million cycles (9.9 ms) \\ 
+    \hline
+    \end{tabular}
+\end{center}
 
+\subsubsection{Measurement}
 
+After running the \textit{MeasurePageFault()} routine, I retrieved the following results:
 
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l |}
+    \hline
+    \# of Samples & First Iteration & Min & Max & Mean & Std Dev \\
+    \hline
+    1000 iterations & 33.89 M cycles & 15,603 c. & 87.5 M c. & 19.8 M c. & 10.0 M. c. \\ 
+    \hline
+    \end{tabular}
+\end{center}
 
+My estimate was lower than what was measured and at least within the standard deviation of the average.  There was more variance in the data for a page fault compared to the memory bandwidth.  However, it is still somewhat acceptable.
 
+The standard deviation is half of the average.  The minimum value is 15,603 clock cycles which is a measley 7.8 $\mu$s.  This measurement seems to be too long for it to be accessing main memory since is about 80 times the measurement of main memory.  An explanation for some of the shorter reads is that the head and platter could have been in position with some of its data in a disk cache.  So this miminimum time of 7.8 $\mu$s could be more representative of reading from disk when there is little to no seek time and some of the data could already be buffered to read.
 
+The maximum read was an astounding 43 ms.  A perfect storm of circumstances could cause this phenomenon - a full platter rotate with a context switch to boot.  At any rate, it is a good reminder of the cost of reading from disk and that it can really hinder performance.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Compared to accessing main memory, the average cost of reading a single byte from disk is 4835 clock cycles.  This value was calculated by taking the average time and dividing by the page size - 4096 bytes.  A single byte from main memory is 241 cycles / 4 cycles or ~ 60 cycles.  Thus, a single byte from hard disk is on the order of being 80 times more expensive than one from main memory.  
 
 
 
