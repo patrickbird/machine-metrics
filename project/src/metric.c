@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <math.h>
+#include <netdb.h>
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
@@ -13,8 +14,12 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <netinet/in.h>
+#include <netinet/ip.h>
+
 #include <sys/mman.h>
 #include <sys/resource.h>
+#include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -25,6 +30,7 @@
 #define ONE_MB (ONE_KB * ONE_KB)
 #define BLOCK_INDEX_COUNT 10
 #define PAGE_SIZE (4 * ONE_KB)
+#define ONE_GB (256 * ONE_KB * ONE_KB)
 
 static struct METRIC
 {
@@ -43,6 +49,12 @@ static struct METRIC
     int * Arguments;
 } _metrics[MEASUREMENT_COUNT];
 
+struct Node
+{
+    char Data[500];
+    struct Node * Next;
+};
+
 static const char * MetricNames[MEASUREMENT_COUNT] =
 {
     "RDTSCP",
@@ -60,16 +72,133 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "PThread",
     "Fork Context Switch",
     "PThread Context Switch",
-    "Main Memory",
+    
+    "Memory 10 S1",
+    "Memory 11 S1",
+    "Memory 12 S1",
+    "Memory 13 S1",
+    "Memory 14 S1",
+    "Memory 15 S1",
+    "Memory 16 S1",
+    "Memory 17 S1",
+    "Memory 18 S1",
+    "Memory 19 S1",
+    "Memory 20 S1",
+    "Memory 21 S1",
+    "Memory 22 S1",
+    "Memory 23 S1",
+    "Memory 24 S1",
+    "Memory 25 S1",
+    "Memory 26 S1",
+    "Memory 27 S1",
+    "Memory 28 S1",
+    "Memory 29 S1",
+
+    "Memory 10 S2",
+    "Memory 11 S2",
+    "Memory 12 S2",
+    "Memory 13 S2",
+    "Memory 14 S2",
+    "Memory 15 S2",
+    "Memory 16 S2",
+    "Memory 17 S2",
+    "Memory 18 S2",
+    "Memory 19 S2",
+    "Memory 20 S2",
+    "Memory 21 S2",
+    "Memory 22 S2",
+    "Memory 23 S2",
+    "Memory 24 S2",
+    "Memory 25 S2",
+    "Memory 26 S2",
+    "Memory 27 S2",
+    "Memory 28 S2",
+    "Memory 29 S2",
+
+    "Memory 10 S3",
+    "Memory 11 S3",
+    "Memory 12 S3",
+    "Memory 13 S3",
+    "Memory 14 S3",
+    "Memory 15 S3",
+    "Memory 16 S3",
+    "Memory 17 S3",
+    "Memory 18 S3",
+    "Memory 19 S3",
+    "Memory 20 S3",
+    "Memory 21 S3",
+    "Memory 22 S3",
+    "Memory 23 S3",
+    "Memory 24 S3",
+    "Memory 25 S3",
+    "Memory 26 S3",
+    "Memory 27 S3",
+    "Memory 28 S3",
+    "Memory 29 S3",
+
+    "Memory 10 S4",
+    "Memory 11 S4",
+    "Memory 12 S4",
+    "Memory 13 S4",
+    "Memory 14 S4",
+    "Memory 15 S4",
+    "Memory 16 S4",
+    "Memory 17 S4",
+    "Memory 18 S4",
+    "Memory 19 S4",
+    "Memory 20 S4",
+    "Memory 21 S4",
+    "Memory 22 S4",
+    "Memory 23 S4",
+    "Memory 24 S4",
+    "Memory 25 S4",
+    "Memory 26 S4",
+    "Memory 27 S4",
+    "Memory 28 S4",
+    "Memory 29 S4",
+
+    "Memory 10 S5",
+    "Memory 11 S5",
+    "Memory 12 S5",
+    "Memory 13 S5",
+    "Memory 14 S5",
+    "Memory 15 S5",
+    "Memory 16 S5",
+    "Memory 17 S5",
+    "Memory 18 S5",
+    "Memory 19 S5",
+    "Memory 20 S5",
+    "Memory 21 S5",
+    "Memory 22 S5",
+    "Memory 23 S5",
+    "Memory 24 S5",
+    "Memory 25 S5",
+    "Memory 26 S5",
+    "Memory 27 S5",
+    "Memory 28 S5",
+    "Memory 29 S5",
+
     "L1 Cache",
     "L2 Cache",
+    "Back-to-back Latency",
     "RAM Write Bandwidth",
     "RAM Read Bandwidth",
-    "Page Size"
+    "Page Fault",
+    
+    "TCP Round Trip (Loopback)",
+    "TCP Bandwidth (Loopback)",
+    "TCP Setup (Loopback)",
+    "TCP Teardown (Loopback)",
+    
+    "TCP Round Trip (Remote)",
+    "TCP Bandwidth (Remote)",
+    "TCP Setup (Remote)",
+    "TCP Teardown (Remote)"
 };
 
 static int _dummy;
-static int _blocks[BLOCK_COUNT][ONE_KB];
+static struct Node  _headNode;
+static int   _memory[ONE_GB];
 
 static pthread_mutex_t _mutex;
 static pthread_cond_t _condition;
@@ -99,13 +228,22 @@ static uint64_t MeasurePthreadContextSwitch(int * arguments);
 static uint64_t MeasureMainMemory(int * arguments);
 static uint64_t MeasureL1Cache(int * arguments);
 static uint64_t MeasureL2Cache(int * arguments);
+static uint64_t MeasureBackToBackLoad(int * arguments);
 static uint64_t MeasureRamWrite(int * arguments);
 static uint64_t MeasureRamRead(int * arguments);
 static uint64_t MeasurePageFault(int * arguments);
+static uint64_t MeasureTcpRoundTrip(int * arguments);
+static uint64_t MeasureTcpBandwidth(int * arguments);
+static uint64_t MeasureTcpSetup(int * arguments);
+static uint64_t MeasureTcpTeardown(int * arguments);
 
 extern void InitializeMetrics(int sampleCount)
 {
     int i;
+    struct Node * node;
+    int argument;
+    int stride, size;
+    int ipAddress;
 
     for (i = 0; i < MEASUREMENT_COUNT; i++)
     {
@@ -125,12 +263,23 @@ extern void InitializeMetrics(int sampleCount)
     _metrics[PTHREAD].Measure = MeasurePthread;
     _metrics[FORK_CONTEXT_SWITCH].Measure = MeasureForkContextSwitch;
     _metrics[PTHREAD_CONTEXT_SWITCH].Measure = MeasurePthreadContextSwitch;
-    _metrics[MAIN_MEMORY].Measure = MeasureMainMemory;
+
     _metrics[L1_CACHE].Measure = MeasureL1Cache;
     _metrics[L2_CACHE].Measure = MeasureL2Cache;
+    _metrics[BACK_TO_BACK].Measure = MeasureBackToBackLoad;
     _metrics[RAM_WRITE_BANDWIDTH].Measure = MeasureRamWrite;
     _metrics[RAM_READ_BANDWIDTH].Measure = MeasureRamRead;
     _metrics[PAGE_FAULT].Measure = MeasurePageFault;
+    
+    _metrics[TCP_ROUND_TRIP_LOOPBACK].Measure = MeasureTcpRoundTrip;
+    _metrics[TCP_BANDWIDTH_LOOPBACK].Measure = MeasureTcpBandwidth;
+    _metrics[TCP_SETUP_LOOPBACK].Measure = MeasureTcpSetup;
+    _metrics[TCP_TEARDOWN_LOOPBACK].Measure = MeasureTcpTeardown;
+    
+    _metrics[TCP_ROUND_TRIP_REMOTE].Measure = MeasureTcpRoundTrip;
+    _metrics[TCP_BANDWIDTH_REMOTE].Measure = MeasureTcpBandwidth;
+    _metrics[TCP_SETUP_REMOTE].Measure = MeasureTcpSetup;
+    _metrics[TCP_TEARDOWN_REMOTE].Measure = MeasureTcpTeardown;
 
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
@@ -139,14 +288,59 @@ extern void InitializeMetrics(int sampleCount)
         _metrics[i].Arguments[0] = i;
     }
 
+    stride = 256;
+    
+    for (i = 0; i < 5; i++)
+    {
+        int j;
+        size = 64;
+
+        for (j = MEM_INITIAL + 20 * i; j < MEM_INITIAL + 20 * i + 20; j++)
+        {
+            _metrics[j].Measure = MeasureMainMemory;
+            _metrics[j].Arguments = calloc(2, sizeof(int));
+            _metrics[j].Arguments[0] = stride;
+            _metrics[j].Arguments[1] = size;
+
+            size = size << 1;
+        }
+
+        stride = stride << 2;
+    }
+
     pthread_mutex_init(&_mutex, NULL);
     pthread_cond_init(&_condition, NULL);
+
+    node = calloc(1, sizeof(struct Node));
+    _headNode.Next = node;
+    for (i = 0; i < 1000; i++)
+    {
+        node->Next = calloc(1, sizeof(struct Node));
+        node = node->Next;
+    }
+    
+    node->Next = NULL;
+
+    inet_pton(AF_INET, "127.0.0.1", &ipAddress);
+    for (i = TCP_ROUND_TRIP_LOOPBACK; i <= TCP_TEARDOWN_LOOPBACK; i++)
+    {
+        _metrics[i].Arguments = calloc(1, sizeof(int));
+        _metrics[i].Arguments[0] = ipAddress;
+    }
+
+    inet_pton(AF_INET, "10.12.232.33", &ipAddress);
+    for (i = TCP_ROUND_TRIP_REMOTE; i <= TCP_TEARDOWN_REMOTE; i++)
+    {
+        _metrics[i].Arguments = calloc(1, sizeof(int));
+        _metrics[i].Arguments[0] = ipAddress;
+    }
 }
 
 extern void FinalizeMetrics(void)
 {
     int i;
     char fileName[50];
+    struct Node * node = _headNode.Next;
 
     for (i = 0; i < MEASUREMENT_COUNT; i++)
     {
@@ -156,6 +350,23 @@ extern void FinalizeMetrics(void)
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
         free(_metrics[i].Arguments);
+    }
+
+    for (i = MEM_INITIAL; i <= MEM_FINAL; i++)
+    {
+        free(_metrics[i].Arguments);
+    }
+
+    //for (i = 0; i < ONE_GB; i++)
+    //{
+    //    free(_memory[i]);
+    //}
+
+    while (node->Next != NULL)
+    {
+        struct Node * temp = node->Next;
+        free(node);
+        node = temp;
     }
 
     system("rm /tmp/pagefault*");
@@ -235,7 +446,17 @@ static void UpdateMeasurementCalculations(enum MEASUREMENT measurement)
     {
         difference = _metrics[measurement].Samples[i] - average;
         sum += (difference * difference);
+    
     }
+
+        //if (measurement >= MEM_INITIAL && measurement <= MEM_FINAL)
+        //{
+        //    int stripes = _metrics[measurement].Arguments[0];
+        //    int size = _metrics[measurement].Arguments[1];
+
+        //    average = average - _metrics[RDTSCP].Mean;// - ((size/stripes) * _metrics[LOOP].Mean);
+        //    average = average / ((double) size / (double)stripes);
+        //}
 
     _metrics[measurement].Mean = average;
     _metrics[measurement].StandardDeviation = sqrt(sum / _metrics[measurement].SampleCount);
@@ -600,44 +821,78 @@ static int GetPseudoRandomBlockNumber(void)
     return blockNumber;
 }
 
+static void ClearCache(void)
+{
+    int i;
+
+    for (i = 0; i < ONE_GB; i++)
+    {
+        _memory[i] = i;
+    }
+}
+
 static uint64_t MeasureMainMemory(int * arguments)
 {
     unsigned int low1, high1, low2, high2;
-    int index = GetPseudoRand() % 4000000;
     int dummy;
-    int * temp = calloc(4000000, sizeof(int));
-
+    int stride = arguments[0];
+    int size = arguments[1];
+    int i;
+    //int index = GetPseudoRand() % step;
     GetRdtscpValue(&low1, &high1);
 
-    dummy = temp[index];
+    for (i = 0; i < size; i = i + stride)
+    {
+        dummy = _memory[i];
+    } 
 
     GetRdtscpValue(&low2, &high2);    
 
     dummy++;
-    
-    free(temp);
+
+    return (GetUint64Value(low2, high2) - GetUint64Value(low1, high1)) / ((double)size / (double)stride);
+}
+
+static uint64_t MeasureBackToBackLoad(int * arguments)
+{
+    struct Node * node = _headNode.Next;
+    unsigned int low1, high1, low2, high2;
+    int i, j;
+
+    GetRdtscpValue(&low1, &high1);
+
+    while (node->Next != NULL)
+    {
+        node = node->Next;
+    }
+
+    GetRdtscpValue(&low2, &high2);    
+
+    ClearCache();
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
 static uint64_t MeasureL1Cache(int * arguments)
 {
-    const int INT_COUNT = 10;
+    const int INT_COUNT = 50;
 
     unsigned int low1, high1, low2, high2;
     int i;
-    int blockNumber = GetPseudoRand() % BLOCK_COUNT; //GetPseudoRandomBlockNumber();
+    //int start = GetPseudoRand() % ONE_GB - INT_COUNT; //GetPseudoRandomBlockNumber();
 
     for (i = 0; i < INT_COUNT; i++)
     {
-        _blocks[blockNumber][i] = GetPseudoRand() % INT_MAX;
+        _memory[i] = 0x55AA55AA;//GetPseudoRand() % INT_MAX;
     }
 
     GetRdtscpValue(&low1, &high1);
 
-    _dummy = _blocks[blockNumber][INT_COUNT >> 1];
+    _dummy = _memory[(INT_COUNT >> 1)];
 
     GetRdtscpValue(&low2, &high2);
+
+    ClearCache();
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);   
 }
@@ -647,35 +902,26 @@ static uint64_t MeasureL2Cache(int * arguments)
     const int BLOCK_LENGTH = 50;
 
     unsigned int low1, high1, low2, high2;
-    int i, j, index;
-    int blocks[BLOCK_LENGTH];
-    int blockNumber, blockIndex;
+    int i, index;
 
     // Read into L1 and spill into L2
-    for (i = 0; i < BLOCK_LENGTH; i++)
+    for (i = 0; i < 20000; i++)
     {
-        blocks[i] = GetPseudoRand() % BLOCK_COUNT;
-
-        for (j = 0; j < ONE_KB; j = j + 10)
-        {
-            _blocks[blocks[i]][j] = GetPseudoRand() % INT_MAX;
-        }
+        _memory[i] = GetPseudoRand() % INT_MAX;
     }
-
-    blockNumber = blocks[GetPseudoRand() % (BLOCK_LENGTH - 20)];
-    blockIndex = GetPseudoRand() % ONE_KB; 
+    
+    index = GetPseudoRand() % 1000; 
 
     GetRdtscpValue(&low1, &high1);
 
-    _dummy = _blocks[blockNumber][blockIndex];
+    _dummy = _memory[index];
 
     GetRdtscpValue(&low2, &high2);
 
+    ClearCache();
+
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
-
-#pragma GCC push_options
-#pragma GCC optimize ("unroll-loops")
 
 static uint64_t MeasureRamWrite(int * arguments)
 {
@@ -684,18 +930,9 @@ static uint64_t MeasureRamWrite(int * arguments)
 
     GetRdtscpValue(&low1, &high1);
 
-    //for (i = 0; i < BLOCK_COUNT; i++)
-    //{
-    //    for (j = 0; j < ONE_KB; j++)
-    //    {
-    //        _blocks[i][j] = 0x55AA55AA;
-    //    }
-    //}
-    //
-
     asm("cld\n"
         "rep stosq"
-        : : "D" (_blocks), "c" (sizeof(_blocks) >> 3), "a" (0) );
+        : : "D" (_memory), "c" (sizeof(_memory) >> 3), "a" (0) );
 
     GetRdtscpValue(&low2, &high2);
 
@@ -709,61 +946,178 @@ static uint64_t MeasureRamRead(int * arguments)
 
     GetRdtscpValue(&low1, &high1);
 
-    //for (i = 0; i < BLOCK_COUNT; i++)
-    //{
-    //    for (j = 0; j < ONE_KB; j++)
-    //    {
-    //        _dummy = _blocks[i][j];
-    //    }
-    //}
-    
     asm("cld\n"
         "rep lodsq"
-        : : "S" (_blocks), "c" (sizeof(_blocks) >> 3) : "%eax");
+        : : "S" (_memory), "c" (sizeof(_memory) >> 3) : "%eax");
 
     GetRdtscpValue(&low2, &high2);
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
-
-#pragma GCC pop_options
 
 static uint64_t MeasurePageFault(int * arguments)
 {
     FILE * file;
-    int i, j, index;
-    int pageSize = getpagesize();
     int low1, low2, high1, high2;
-    char page[PAGE_SIZE];
-    char page2[PAGE_SIZE];
+    int dummy;
+    uint64_t seekPos;    
+    uint64_t diff;
 
-    //for (i = 0; i < PAGE_SIZE; i++)
-    //{
-    //    page[i] = rand() % UCHAR_MAX;
-    //}
-    //strcpy(page, "Hello");
+    file = fopen("bigfile", "r");
 
-    //printf("First %s\n", page);
+    if (file == NULL)
+    {
+        printf("Couldn't open file.\n");
+        exit(0);
+    }
 
-    //file = tmpfile();
-
-    //fwrite(page, sizeof(char), PAGE_SIZE, file);
-
-    //mprotect(page, PAGE_SIZE, PROT_NONE);
-    //memset(page, 0, PAGE_SIZE);
-
-    file = fopen("try", "r");
-    
+    seekPos = (((uint64_t)GetPseudoRand() << 32) | (uint64_t)GetPseudoRand()) % 300000000000ULL;
 
     GetRdtscpValue(&low1, &high1);
-    fseek(file, 5000000, SEEK_SET);
-
-    fread(page, sizeof(char), pageSize, file);
     
+    fseek(file, seekPos, SEEK_SET);
+
+    fread(&dummy, sizeof(int), 1, file);
+
     GetRdtscpValue(&low2, &high2);
 
+    _dummy = dummy + 1;
+
+    diff =  GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+
+
+    fclose(file);
+
+    return diff;
+}
+
+
+static uint64_t MeasureTcpRoundTrip(int * arguments)
+{
+    int descriptor;
+    struct sockaddr_in server;
+    char * txMessage = "Hello World";
+    char rxMessage[100];
+    int low1, low2, high1, high2;
+
+    descriptor = socket(AF_INET, SOCK_STREAM, 0);
+    
+    server.sin_family = AF_INET;
+    server.sin_port = htons(7);
+    server.sin_addr.s_addr = arguments[0];
+
+    connect(descriptor, (const struct sockaddr *)&server, sizeof(server));
+   
+    GetRdtscpValue(&low1, &high1);
+
+    send(descriptor, txMessage, strlen(txMessage), 0);
+
+    recv(descriptor, rxMessage, strlen(txMessage), 0); 
+
+    GetRdtscpValue(&low2, &high2);
+
+    shutdown(descriptor, SHUT_RDWR);
+
+    close(descriptor);
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
+static uint64_t MeasureTcpBandwidth(int * arguments)
+{
+    int descriptor;
+    struct sockaddr_in server;
+    char * txMessage = "Hello World";
+    char rxMessage[100];
+    int low1, low2, high1, high2;
+    int i;
+
+    descriptor = socket(AF_INET, SOCK_STREAM, 0);
+    
+    server.sin_family = AF_INET;
+    server.sin_port = htons(7);
+    server.sin_addr.s_addr = arguments[0];
+
+    connect(descriptor, (const struct sockaddr *)&server, sizeof(server));
+   
+    GetRdtscpValue(&low1, &high1);
+
+    for (i = 0; i < 1000; i++)
+    {
+        send(descriptor, txMessage, strlen(txMessage), 0);
+
+        recv(descriptor, rxMessage, strlen(txMessage), 0); 
+    }
+
+    GetRdtscpValue(&low2, &high2);
+
+    shutdown(descriptor, SHUT_RDWR);
+
+    close(descriptor);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+
+}
+
+static uint64_t MeasureTcpSetup(int * arguments)
+{
+    int descriptor;
+    struct sockaddr_in server;
+    char * txMessage = "Hello World";
+    char rxMessage[100];
+    int low1, low2, high1, high2;
+    
+    GetRdtscpValue(&low1, &high1);
+
+    descriptor = socket(AF_INET, SOCK_STREAM, 0);
+    
+    server.sin_family = AF_INET;
+    server.sin_port = htons(7);
+    server.sin_addr.s_addr = arguments[0];
+
+    connect(descriptor, (const struct sockaddr *)&server, sizeof(server));
+   
+    GetRdtscpValue(&low2, &high2);
+
+    send(descriptor, txMessage, strlen(txMessage), 0);
+
+    recv(descriptor, rxMessage, strlen(txMessage), 0); 
+
+    shutdown(descriptor, SHUT_RDWR);
+
+    close(descriptor);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static uint64_t MeasureTcpTeardown(int * arguments)
+{
+    int descriptor;
+    struct sockaddr_in server;
+    char * txMessage = "Hello World";
+    char rxMessage[100];
+    int low1, low2, high1, high2;
+
+    descriptor = socket(AF_INET, SOCK_STREAM, 0);
+    
+    server.sin_family = AF_INET;
+    server.sin_port = htons(7);
+    server.sin_addr.s_addr = arguments[0];
+
+    connect(descriptor, (const struct sockaddr *)&server, sizeof(server));
+
+    send(descriptor, txMessage, strlen(txMessage), 0);
+
+    recv(descriptor, rxMessage, strlen(txMessage), 0); 
+
+    GetRdtscpValue(&low1, &high1);
+
+    shutdown(descriptor, SHUT_RDWR);
+
+    close(descriptor);
+    
+    GetRdtscpValue(&low2, &high2);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
 
