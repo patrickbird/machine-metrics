@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <math.h>
+#include <netdb.h>
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
@@ -13,8 +14,12 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <netinet/in.h>
+#include <netinet/ip.h>
+
 #include <sys/mman.h>
 #include <sys/resource.h>
+#include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -178,7 +183,17 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Back-to-back Latency",
     "RAM Write Bandwidth",
     "RAM Read Bandwidth",
-    "Page Fault"
+    "Page Fault",
+    
+    "TCP Round Trip (Loopback)",
+    "TCP Bandwidth (Loopback)",
+    "TCP Setup (Loopback)",
+    "TCP Teardown (Loopback)",
+    
+    "TCP Round Trip (Remote)",
+    "TCP Bandwidth (Remote)",
+    "TCP Setup (Remote)",
+    "TCP Teardown (Remote)"
 };
 
 static int _dummy;
@@ -217,6 +232,10 @@ static uint64_t MeasureBackToBackLoad(int * arguments);
 static uint64_t MeasureRamWrite(int * arguments);
 static uint64_t MeasureRamRead(int * arguments);
 static uint64_t MeasurePageFault(int * arguments);
+static uint64_t MeasureTcpRoundTrip(int * arguments);
+static uint64_t MeasureTcpBandwidth(int * arguments);
+static uint64_t MeasureTcpSetup(int * arguments);
+static uint64_t MeasureTcpTeardown(int * arguments);
 
 extern void InitializeMetrics(int sampleCount)
 {
@@ -224,12 +243,7 @@ extern void InitializeMetrics(int sampleCount)
     struct Node * node;
     int argument;
     int stride, size;
-
-    //for (i = 0; i < ONE_GB; i++)
-    //{
-    //    _memory[i] = calloc(1, sizeof(int));
-    //    *_memory[i] = 0xAA55AA55;
-    //}
+    int ipAddress;
 
     for (i = 0; i < MEASUREMENT_COUNT; i++)
     {
@@ -256,6 +270,16 @@ extern void InitializeMetrics(int sampleCount)
     _metrics[RAM_WRITE_BANDWIDTH].Measure = MeasureRamWrite;
     _metrics[RAM_READ_BANDWIDTH].Measure = MeasureRamRead;
     _metrics[PAGE_FAULT].Measure = MeasurePageFault;
+    
+    _metrics[TCP_ROUND_TRIP_LOOPBACK].Measure = MeasureTcpRoundTrip;
+    _metrics[TCP_BANDWIDTH_LOOPBACK].Measure = MeasureTcpBandwidth;
+    _metrics[TCP_SETUP_LOOPBACK].Measure = MeasureTcpSetup;
+    _metrics[TCP_TEARDOWN_LOOPBACK].Measure = MeasureTcpTeardown;
+    
+    _metrics[TCP_ROUND_TRIP_REMOTE].Measure = MeasureTcpRoundTrip;
+    _metrics[TCP_BANDWIDTH_REMOTE].Measure = MeasureTcpBandwidth;
+    _metrics[TCP_SETUP_REMOTE].Measure = MeasureTcpSetup;
+    _metrics[TCP_TEARDOWN_REMOTE].Measure = MeasureTcpTeardown;
 
     for (i = PROCEDURE_INITIAL; i <= PROCEDURE_FINAL; i++)
     {
@@ -294,8 +318,22 @@ extern void InitializeMetrics(int sampleCount)
         node->Next = calloc(1, sizeof(struct Node));
         node = node->Next;
     }
-
+    
     node->Next = NULL;
+
+    inet_pton(AF_INET, "127.0.0.1", &ipAddress);
+    for (i = TCP_ROUND_TRIP_LOOPBACK; i <= TCP_TEARDOWN_LOOPBACK; i++)
+    {
+        _metrics[i].Arguments = calloc(1, sizeof(int));
+        _metrics[i].Arguments[0] = ipAddress;
+    }
+
+    inet_pton(AF_INET, "10.12.232.33", &ipAddress);
+    for (i = TCP_ROUND_TRIP_REMOTE; i <= TCP_TEARDOWN_REMOTE; i++)
+    {
+        _metrics[i].Arguments = calloc(1, sizeof(int));
+        _metrics[i].Arguments[0] = ipAddress;
+    }
 }
 
 extern void FinalizeMetrics(void)
@@ -925,7 +963,7 @@ static uint64_t MeasurePageFault(int * arguments)
     uint64_t seekPos;    
     uint64_t diff;
 
-    file = fopen("test", "r");
+    file = fopen("bigfile", "r");
 
     if (file == NULL)
     {
@@ -953,4 +991,133 @@ static uint64_t MeasurePageFault(int * arguments)
     return diff;
 }
 
+
+static uint64_t MeasureTcpRoundTrip(int * arguments)
+{
+    int descriptor;
+    struct sockaddr_in server;
+    char * txMessage = "Hello World";
+    char rxMessage[100];
+    int low1, low2, high1, high2;
+
+    descriptor = socket(AF_INET, SOCK_STREAM, 0);
+    
+    server.sin_family = AF_INET;
+    server.sin_port = htons(7);
+    server.sin_addr.s_addr = arguments[0];
+
+    connect(descriptor, (const struct sockaddr *)&server, sizeof(server));
+   
+    GetRdtscpValue(&low1, &high1);
+
+    send(descriptor, txMessage, strlen(txMessage), 0);
+
+    recv(descriptor, rxMessage, strlen(txMessage), 0); 
+
+    GetRdtscpValue(&low2, &high2);
+
+    shutdown(descriptor, SHUT_RDWR);
+
+    close(descriptor);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static uint64_t MeasureTcpBandwidth(int * arguments)
+{
+    int descriptor;
+    struct sockaddr_in server;
+    char * txMessage = "Hello World";
+    char rxMessage[100];
+    int low1, low2, high1, high2;
+    int i;
+
+    descriptor = socket(AF_INET, SOCK_STREAM, 0);
+    
+    server.sin_family = AF_INET;
+    server.sin_port = htons(7);
+    server.sin_addr.s_addr = arguments[0];
+
+    connect(descriptor, (const struct sockaddr *)&server, sizeof(server));
+   
+    GetRdtscpValue(&low1, &high1);
+
+    for (i = 0; i < 1000; i++)
+    {
+        send(descriptor, txMessage, strlen(txMessage), 0);
+
+        recv(descriptor, rxMessage, strlen(txMessage), 0); 
+    }
+
+    GetRdtscpValue(&low2, &high2);
+
+    shutdown(descriptor, SHUT_RDWR);
+
+    close(descriptor);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+
+}
+
+static uint64_t MeasureTcpSetup(int * arguments)
+{
+    int descriptor;
+    struct sockaddr_in server;
+    char * txMessage = "Hello World";
+    char rxMessage[100];
+    int low1, low2, high1, high2;
+    
+    GetRdtscpValue(&low1, &high1);
+
+    descriptor = socket(AF_INET, SOCK_STREAM, 0);
+    
+    server.sin_family = AF_INET;
+    server.sin_port = htons(7);
+    server.sin_addr.s_addr = arguments[0];
+
+    connect(descriptor, (const struct sockaddr *)&server, sizeof(server));
+   
+    GetRdtscpValue(&low2, &high2);
+
+    send(descriptor, txMessage, strlen(txMessage), 0);
+
+    recv(descriptor, rxMessage, strlen(txMessage), 0); 
+
+    shutdown(descriptor, SHUT_RDWR);
+
+    close(descriptor);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static uint64_t MeasureTcpTeardown(int * arguments)
+{
+    int descriptor;
+    struct sockaddr_in server;
+    char * txMessage = "Hello World";
+    char rxMessage[100];
+    int low1, low2, high1, high2;
+
+    descriptor = socket(AF_INET, SOCK_STREAM, 0);
+    
+    server.sin_family = AF_INET;
+    server.sin_port = htons(7);
+    server.sin_addr.s_addr = arguments[0];
+
+    connect(descriptor, (const struct sockaddr *)&server, sizeof(server));
+
+    send(descriptor, txMessage, strlen(txMessage), 0);
+
+    recv(descriptor, rxMessage, strlen(txMessage), 0); 
+
+    GetRdtscpValue(&low1, &high1);
+
+    shutdown(descriptor, SHUT_RDWR);
+
+    close(descriptor);
+    
+    GetRdtscpValue(&low2, &high2);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
 
