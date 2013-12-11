@@ -1,0 +1,110 @@
+Patrick Bird
+CSE 221
+Homework #2
+patbird@gmail.com
+
+
+1)
+
+a) Instead of signalling, the Mesa monitors use notify which Lampson et al describe as a hint to the waiter.  It is not immeadiate as it is in Hoare's monitor.  Hoare's monitor expects that the waiting process will execute immeadiately after a signal.  Since, the Mesa monitor notify is more of a hint, another process may enter the monitor.  Thus, the monitor invariant I is the only thing that a waiting process can assume and it requires an extra check after a waiting process is notified.  However, it minimizes the context switching since there is not a requirement to context switch right away.
+
+b) 
+   |  invariant I  |  conditon B
+----------------------------------
+1  |    unknown    |    unknown
+----------------------------------
+2  |    unknown    |    !hold
+----------------------------------
+3  |    hold       |    !hold
+----------------------------------
+4  |    hold       |    unknown
+----------------------------------
+5  |    hold       |    hold
+
+
+
+2)  First, I'll answer about GMS and then about Exokernel
+
+GMS
+----------
+2.1) The service that was implemented was a global memory management service in a workstation cluster.  Instead of just traditionally having just local main memory and disk to work with, the authors extended it to have a global store within a cluster.  Their rationale is that swapping a page out in a global network store where network latency would be low would be faster than attempting to read from local disk.  In their implementation, they chose to expose their implementation.
+
+2.2)  In their implementation, they chose to expose information about the age of memory pages so that the nodes in the cluster could make optimal decisions of where to swap to and from.  In their implementation, they maintained three principal data structures: the page-frame-directory, the global-cache-directory, and the page-ownership-directory.
+
+The page-frame-directory specifically was the mechanism that existed on each node in the cluser.  This PFD supplied information about the physical page frame, LRU statistics, and whether it was a local or global frame.  The global-cache-directory was the mechanism to look up a node and get its IP address to see if a particular page was cached.  The POD mapped the UID for a shared page to the node storing the GCD section containting that page.
+
+2.3) During a page fault, the faulting node starts a 'getpage' operation for the missing page.  It first takes the UID of the faulting page and hashes into the POD to get the IP address of the portion of the GCD that it cares about.  The faulting node A will then make a request to this GCD node B and send the UID of the page to lookup in its GCD.  
+
+Node B will then do a lookup in its GCD.  If it doesn't find it, it responds accordingily to node A.  This is essentially a miss and node A will have to retrieve the page from either disk or NFS.  If it it is a hit, node B will then make a request for the page with the UID to the node that has the page in its PFD.  This node that has the page in its PFD, C, will then respond to the original requestor, node A, with the resulting page.
+
+2.4) One of the problems that the authors faced was the page aging process.  Since the age of pages needed to be tracked at a cluster level, this step was important.  And unfortunately, the UNIX flavor that GMS was based on, OSF/1, had difficulty tracking page age.  For pages with file-backing with traditional read/write requests, the age information could be accessed.  However, anonymous and mapped file pages were invisible to the OS, not to mention the lack of global age information.
+
+To handle this situation, they modified the TLB handler.  Every minute, they would flush the TLB of all entries.  Then, when the TLB handler would perform a virtual to physical translation on a TLB miss, a bit would be set for that physical page frame.  They implemented a kernel thread that would sample this bit every period to get LRU statistics.
+
+2.5) The author's chose to expose the information because more or less they had to if they wanted to get better peformance that swapping in and out of disk.  Just as the quote said, less work needed to be done in this case.  If they hid page information or obscured it in some way, more work would had to have been done.
+
+For example, if they hid information and did not have a POD or a GCD, each node would have to do more work to see whether its page information was in the global store or not.  Since they implemented these three key software mechanisms, the algorithm was very deliberate and deterministic as far as knowing whether the page was out there or not.  As answer 2.3 outlined, it was a total of three tight network calls to retrieve the page information.  If the page information were hidden, the algorithm and work required would most likely be more expensive and probably not worth it.  Disk access would probably be better.
+
+Exokernel
+---------
+
+2.1) Exokernel is a micro-kernel that exports low-level primitives to allow application level software to implement hardware management systems that traditional operating systems usually manage.  In their implementation, the authors chose to expose in their implementation.
+
+2.2) Exokernel exposed much of the hardware resources to application level software.  In particular Exokernel exposed allocation to specific physical resources.  It also exposed physical names and their associated data structures that define the state of their physical counterparts.  Exokernel also exposes revocation so application-level software can perform effective resource management.
+
+For allocating resources, Exokernel provides a mechanism for application-level software to perform a secure binding on that resource, which is basically a protection mechanism that authorizes that software to use it.  It utilizes a visible revocation protocol for most of its resources.  It's visibile in the sense that it requires application involvement.  The physical naming of the resource is embedded in both resource allocation and revocation since the exokernel and application library have to coordinate on which resource Exokernel exports and revokes. 
+
+2.3)  For instance, when a library allocates a page in memory, Exokernel exports a page to that library and securely binds to it.  It does the binding by recording the owner of the page (the library) and the read and write capabilitites that were specified by the library.  To insure the binding is secure, the exokernel guards every access to the physical memory page by checking the library's presented capabilities.
+
+And if for instance, a library wanted to share a page, the library could share or export its capabilities to another library.  This would enable another library to read a page with the right capabilities without getting the kernel involved in the intiial transaction.  This could also be a case if the capabilities of the original page changed, the kernel might have to force revoke access from the secondary library.   
+
+2.4)  One of the problems that the authors faced was how to tackle networking in an efficient way.  Since having a network parser at the application level where it would parse the messsages and multiplex them would be inefficient.
+
+To tackle this issue, they implemented a method where an author could create packet filters.  These filters could be downloaded into the kernel and compiled at run time.  From these filters, the messages can be forwarded to the intended libraries.
+
+2.5)  In Exokernel's case, I think it's a mixed answer.  Their end goal of improving efficiency is met in very particular cases.  However, I think that exposing and exporting hardware ended up with a lot more work than a lot less work.  For instance, most of the work to write a library to handle memory for a particular system would most likely be just for that system.  In the case of a monolithic kernel like Linux, a simple encapsulated library call could do the same thing as a complex 'transparent' library that one would need to implement in Exokernel.
+
+With all that said, their rationale is understood and in some ways, the large amount of work could not be avoided.  Their main argument is that the problem with monolithic kernels is that a lot is hidden so a lot could not be optimized.  And so they set out to do that and succeeded.  However, it came with a lot of work.
+
+3)
+
+For 3.1, 3.2, and 3.4, I'll answer each within their own section and with the following mappings:
+
+	a => Exokernet
+	b => L4
+	c => Xen
+
+3.1)
+
+a) For exokernel, the different protection domains are the web server, the exokernel itself, and application packet filters.  The web server is unprivileged, and the exokernel is privledged.  The filters are interesting because they start as unprivleged code.  But then it is downloaded and compiled in the kernel and run there.  So packet filters start unpriviledged, but are priviledged at runtime.
+
+b) For L4, the different protection domains are the web server, a network server, and the kernel itself.  Both the web server and the network server are unprivileged while the kernel runs in privileged mode.
+
+c) For Xen, the different protection domains are the web server, the guest OS, Xen, and an I/O ring.  The web server and the guest OS run as unprivileged.  While, Xen and the I/O ring run as privleged.
+
+3.2)  
+
+a) Before a packet arrives, the packet filters need to be downloaded by the kernel from the web server application.  After the filters are downloaded, they're compiled and checked for safety.  After they're installed, a packet can be handled.  So when a packet arrives at the network card, the kernel runs the packet through the packet filter that was supplied by the web server.  If there is a match, an IPC call is made from the packet filter to the web server with the appropriate packet.
+
+b) Thus, when a network packet comes in, a hardware interrupt is triggered, and an IPC call is made to the network driver via IPC.  The packet transfers to the network device driver by means of mapped memory.  After the network driver decodes the message, a message would then be sent to the web server that the packet is indeed an HTTP request.  And then the server would decode it and act accordinigly.
+
+c)  Before a network packet arrives, the guest OS would need to place a request for a descriptor on the I/O ring.  Xen would respond with a network descriptor.  From there, when a packet arrives, it is handled by Xen.  Xen performs an asynchronous event to the guest OSes.  The guest OS would receive the event and then read the packet from the descriptor that it received before.  From there, the guest OS would trigger a interrupt to the web server.  The web server would then read the packet from the stream that was indicated by the descriptor.  The guest OS, guest OS interrupt, and web server would all be running in unprivileged mode.
+
+3.3)
+
+From the list of these three options, I believe that Exokernel would be the most performant.  And it is mainly due to the fact that the web server itself can provide its own packet filters that will run at the kernel level.  So when the packets come in, they will be handled by the kernel and then signalled to the web server process.  There is really only one protection domain crossing for Exokernel while in the cases of L4 and Xen, there are more than one.  (There is a smaller one within the kernel between the packet filter and the kernel, however this is minimized since the kernel is in control of the filter code bounds checking.)
+
+For instance, in Xen, the packets would have to be parsed at the IP level so it knows which context's I/O buffer to place it in.  Then, an event would have to be made to that domain so that the domain could read it and interpret it on its end.  After that the web server could parse it.  So, here there would be at least a couple protection domain crossings - one from Xen to the guest OS and another one from the guest OS to the webserver.
+
+And in L4, the packet handling would be done by three different entities - the kernel, the network card pager and the web server pager.  There is just more overhead in communication and context switching in this situation than Exokernel since Exokernel just has the web server and the kernel.  So in L4's situation, there is a crossing from kernel to network card pager and then again from network card pager to web server.
+
+3.4)
+
+a)  First of all, for the web server to trigger a page fault, it would had to have securely bound itself to a particular set of pages of main memory.  The server would attempt to read a blob of memory and the kernel seeing a page table miss would send an IPC call to the application-level library that would handle the page fault.  Within this application-level (unprivledged mode) handler, the library would access the data from disk and return it to the kernel, which would then route it to the server.
+
+Thus, it is the unprivledged domain of the disk handler that would handle the page fault.  It would also be the disk handler's pool of memory that would handle the page fault.  It would most likely give this memory to the kernel, unbind itself.  And then the server would need to bind itself to these new pages.
+
+b)  If the web server caused a page fault, the kernel traps and sends this trap in the form of an IPC call to the specific pager that is associated with the web server.  This pager would handle the page fault by mapping in the specfic area of disk.  The pager would then send this data via IPC to the web server.
+
+c) In Xen, when a guest OS generates a page fault, it writes the faulting address to an extended stack frame since the normal register (CR2) is not possible since it is virtualized.  When this page fault happens, a hypercall is made to Xen.  Xen reads the address from the extended stack frame and reads the data from disk into an I/O buffer that is supplied by the guest OS.  This buffer is instantiated after the guest OS and Xen coordinate on a descriptor from the I/O ring.  After the data is written to this buffer, an event is triggered which the guest OS would handle.  Internally the guest OS would then provide this I/O buffer to the webserver to read the data from it.
+

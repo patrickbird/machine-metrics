@@ -30,7 +30,7 @@ They evaluate network penalty.  Why measure it?
 - the cost of using the network
 
 What were their arguments that remote access did not impose very much overhead?
-- only adds a small delay relative to voerall delay
+- only adds a small delay relative to overall delay
 
 They conclude that random remote file access adds a minimum penalty.  Why?
 - same argument as kernel primitives
@@ -59,7 +59,7 @@ What were the three technology trends that motivated sprite?
 - multi processor
 
 Extends unix in three interesting ways
-- single uniform namespace for files and devies
+- single uniform namespace for files and devices
 - shared memory among processes
 - process migration
 

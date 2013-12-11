@@ -1,0 +1,108 @@
+Scheduler Activations
+---------------------
+
+What is the main purpose of paper?
+- solve the user-level/kernel-level thread dilemma
+- new abstraction and mechanism called scheduler activations
+- implement in Taos OS
+
+User level threads are threads supported by user level software package
+Kernel level threads are supported the whole way by the kernel
+
+There is a lot more overhead in kernel level threads because of the continual crossing of boundaries.  However, kernel does the scheduling.
+
+A bunch of user-level threads have cheap context-switching.  They all probably map to just one kernel-level thread.
+
+User vs Kernel
+- improve performance and flexibility
+	- run at user-level, threads managed by library
+	- high performance: thread routines
+	- customizable to application needs
+
+- OS unaware of user-level threads
+	- kernel events hidden at user level
+
+Paper argues that programmers want user-level threads
+- 'cheap parallelism' => frequent thread ops
+- flexibility
+- performance inherently better than kernel-threads
+- without the limitations of kernel threads
+
+Some of the hints utilitze upcalls and downcalls
+
+Their answer is complete user-level management
+- kernel allocates processors to address spaces
+- addr space has complete control over scheduling user threads on procs
+- kernel notifies addr space whenever # proc changes
+
+What is a scheduler activation?
+- pure mechanism that enables user-level to have complete control over scheduling policy
+- 'vessel' for executing a user thread context
+- mechanism for notifying user-level of kernel events
+- data structure for storing user thread state in the kernel
+
+What are the upcall points?
+- add proc
+- proc preempted
+- activation has blocked
+- activation has unblocked
+
+What is key difference between activation and kernel threads?
+- kernel never restarts user thread after it is blocked
+
+What happens when an activation blocks in the kernel?
+- The old activation blocks
+- OS creates new activation, notifies user-level
+- when the user-thread is ready again, OS creates new activation and upcalls
+
+When activation blockcs, why create a new activation?
+
+Advnatage of scheduler activations is that user-level does not have to tell OS of all thread ops (as it would with kernel threads).  But user-level does communicate with kernel.
+
+What are the scheduler activation downcalls?
+- add more procs
+- this proc is idle
+
+Why these?
+- user-level helps OS when there are changes in parallelism
+- more threads to run => want more procs to run them
+- idle threads => give them to other apps
+
+Why are critical sections an issue?
+- thread could be executing in critical section when blocked
+	- poor performance (blocking on lock)
+	- deadlock (blocked thread has ready list lock)
+
+Why don't we have scheduler activations?
+
+
+Lottery Scheduling
+------------------
+
+What is the main point of the paper?
+- Do resource management on CPU, just like you do on other resources
+- Describes probabilistic mechanism for proportional share scheduling
+
+What problems motivate this work?
+- Best applied to situations where you want to express relative rates
+- multi-user servers (e.g. scientific jobs)
+- multi-programmed workstations (e.g. adaptively give CPU to interactive jobs)
+- soft real-time applications (.i.e. multimedia)
+- overhead of existing 'fair-share' schedulers
+- Desire to have very general CPU resource management mechanism
+
+How does lottery scheduling work?
+- each process has certain number of lottery tickets; each representing one CPU quantum
+- OS hold regular lotteries to schedule each quantum
+- holder of winning ticket gets CPU
+- more tickets -> more likely to get CPU quickly and more likely to get more CPU over time if a user has t tickets out of a total of T, the probability of winning in a given round p = t/T
+
+can't express response time differently from share
+- e.g. event-activated work: put in the admium control rods - > needs to execute quickly, but doesn't need much CPU
+- ditto must GUI environments
+- need two parameters to separate response time and share (e.g. x cycles of y)
+
+why random? could compute shares exactly, why not?
+- thought it would be too hard, changed his mind -> stride-scheduling
+
+

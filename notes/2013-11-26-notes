@@ -1,0 +1,173 @@
+Google Facts
+------------
+GFS, BigTable
+Amazon S3, Dynamo
+PNUTS, HDFS
+Cassandra, Haystack, Hive
+
+Google File System
+- Why did they write this paper?
+
+What are the main motivations?
+- Failures are the norm
+- Big files
+- Appending writes
+- Co-designing the applications and the file system API
+
+Detect, tolerate, recover from failures
+
+One master server (state replicated on backups)
+Many chunk servers (100s - 1000s)
+- spread across racks; intra-rack b/w greater than inter-rack
+- chunk: 64 MB portion of file, identified by 64-bit, globally unique ID
+- many clients accessing same and different
+
+Master Server
+- Holds all metadata:
+	- namespace
+	- access control info
+	- mapping from files to chunks
+	- current lcoations of chunks
+
+- Delegates consistency management
+- Garbage collects orphaned chunks
+- Migrates chunks between chunk servers
+
+Chunkserver
+- Stores 64 MB file chunks on lcoal disk using standard Linux filesystem
+- Read/write requests secify chunk handle and byte range
+- No caching of file data
+
+Client
+- Issues control (metadata) requests to master server
+
+Not a filesystem in tradional sense
+- Not POSIX compliant
+- Does not use kernel VFS interface
+- Library that apps can link in for storage access
+
+API
+- open, delete, read, write (as expected)
+- snapshot: quickly create copy of file
+- append: at least once, possibly with gaps and/or inconsistencies among clients
+
+Client Read
+- Client sends master:
+	- read(file name, chunk index)
+- Master's reply
+	- chunk ID
+
+Client Write
+- Some chunkserver is primary for each chunk
+	- master grants lease to primary
+
+Client Write
+- All replicas acknowledge data write to client
+- Client sends write request to primary
+- Primary assigns serial number to write request, providing ordering
+- Primary forwards write request with same....
+
+Consistency model
+- Changes to namespace atomic
+- Changes to data are ordered as chosen by a primary
+
+Any limitations?
+- single master
+- bad latency
+- cannot support too many files or small files
+- relaxed consistency
+
+Bigtable
+--------
+- Distributed multi-level map
+- fault tolerant, persistant
+- scalable
+- self-managing
+
+Data Model
+- a sparse, distributed persisten multi-dimensional sorted map
+
+Rows
+- arbitrary string
+- access to data in a row is atomic
+- ordered lexicographically
+
+Timestamps
+- store different versions of data in a cell
+- llokup options
+	- return most recent K values
+
+- THe row range for a table is dynamically partitioned
+- each row range is called a tablet
+- tablet is the unit for distribution and load balancing
+
+APIs
+- metadata operations
+	- create/delete tables, column families, change metadata
+- writes
+- reads
+
+Building Blocks
+- Google File System
+	
+- Scheduler
+	- schedules jobs onto machines
+- Chubby
+	- Lock service
+- MapReduce
+
+Chubby
+- lock/file/name service
+- coarse-grained locks
+- each client has a session with chubby
+- 5 replicas need a majority vote to be active
+- Also an OSDI '06 paper
+
+Implementation
+- Single-master distributed system
+- Three major components
+	- Library that linked into every client
+	- one master server
+	- many tablets server
+
+Tablets
+- each tablet is assigned to one tablet server
+	- tablet holds contiguous range of rows
+		- clients can often choose row keys to achieve locality
+	- aim for ~100MB to 200MB of data per tablet
+- tablet server is responsible for ~100  tablets
+	- fast recovery:
+		- 100 machines each pick up 1 tablet for failed machine
+	- fine-grained load balancing
+
+How to locate a tablet?
+- given a row, hod do clients find the location of the tablet whose row range covers the target row?
+
+Refinement - locality groups & compresssion
+- Locality groups
+	- can group multiple column families into a locality group
+		- separate SSTable is created for each locality group in each tablet.
+	- segregating columns families that are no typically accessed together enables more efficient reads.
+		- In WebTable, page metadata can be in one group and contents of the page in another group.
+- Compression
+	- many opportunities for compression
+		- similar values in the cell at different timestamps
+		- similar values in different columns
+		- similar values across adjacent rows
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

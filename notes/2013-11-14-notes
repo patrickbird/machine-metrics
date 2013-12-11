@@ -11,3 +11,13 @@ What is the rule of thumb when considering the update dependency?
 - It is OK to waste some inode or blocks
 - But you cannot corrupt or garbage data pointed by something
 
+How have recovery semantics changed?
+- 1) can mount immeadiately: metadata on disk always consistent
+
+Rio File Cache
+--------------
+
+What is the goal of the Rio file cache?
+- the performance of main memory with the reliability of disk
+- write-back performance with write-through reliability
+
