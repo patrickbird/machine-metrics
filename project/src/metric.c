@@ -193,7 +193,25 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "TCP Round Trip (Remote)",
     "TCP Bandwidth (Remote)",
     "TCP Setup (Remote)",
-    "TCP Teardown (Remote)"
+    "TCP Teardown (Remote)",
+
+    "File Cache (1 MB)",
+    "File Cache (2 MB)",
+    "File Cache (4 MB)",
+    "File Cache (8 MB)",
+    "File Cache (16 MB)",
+    "File Cache (32 MB)",
+    "File Cache (64 MB)",
+    "File Cache (128 MB)",
+    "File Cache (256 MB)",
+    "File Cache (512 MB)",
+    "File Cache (1 GB)",
+    "File Cache (2 GB)",
+    "File Cache (4 GB)",
+    "File Cache (8 GB)",
+    "File Cache (16 GB)",
+    "File Cache (32 GB)"
+
 };
 
 static int _dummy;
@@ -236,6 +254,7 @@ static uint64_t MeasureTcpRoundTrip(int * arguments);
 static uint64_t MeasureTcpBandwidth(int * arguments);
 static uint64_t MeasureTcpSetup(int * arguments);
 static uint64_t MeasureTcpTeardown(int * arguments);
+static uint64_t MeasureFileCache(int * arguments);
 
 extern void InitializeMetrics(int sampleCount)
 {
@@ -333,6 +352,13 @@ extern void InitializeMetrics(int sampleCount)
     {
         _metrics[i].Arguments = calloc(1, sizeof(int));
         _metrics[i].Arguments[0] = ipAddress;
+    }
+
+    for (i = FILE_CACHE_1MB; i <= FILE_CACHE_32GB; i++)
+    {
+        _metrics[i].Measure = MeasureFileCache;
+        _metrics[i].Arguments = calloc(1, sizeof(int));
+        _metrics[i].Arguments[0] = (int)pow(2, i - FILE_CACHE_1MB);
     }
 }
 
@@ -1117,6 +1143,85 @@ static uint64_t MeasureTcpTeardown(int * arguments)
     close(descriptor);
     
     GetRdtscpValue(&low2, &high2);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static uint64_t MeasureFileCache(int * arguments)
+{
+    int filesize = arguments[0];
+    int low1, low2, high1, high2;
+    FILE * stream;
+    char * buffer = calloc(ONE_MB, sizeof(char));
+    int i = 0;
+
+    stream = fopen("bigfile", "r");
+    
+    GetRdtscpValue(&low1, &high1);
+
+    for (i = 0; i < filesize; i++)
+    {
+        fread(buffer, sizeof(char), ONE_MB, stream);
+    }
+
+    GetRdtscpValue(&low2, &high2);
+
+    fclose(stream);
+
+    free(buffer);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static uint64_t MeasureFileRead(int * arguments)
+{
+    int filesize = arguments[0];
+    int low1, low2, high1, high2;
+    int descriptor;
+    char * buffer = calloc(ONE_MB, sizeof(char));
+    int i = 0;
+
+    descriptor = open("bigfile", O_RDONLY);
+    
+    GetRdtscpValue(&low1, &high1);
+
+    for (i = 0; i < filesize; i++)
+    {
+        pread(descriptor, buffer, ONE_MB, i * ONE_MB);
+    }
+
+    GetRdtscpValue(&low2, &high2);
+
+    close(descriptor);
+
+    free(buffer);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static uint64_t MeasureRandomFileRead(int * arguments)
+{
+    int filesize = arguments[0];
+    int low1, low2, high1, high2;
+    int descriptor;
+    char * buffer = calloc(ONE_KB, sizeof(char));
+    int i = 0; 
+    int kbFilesize = filesize * ONE_KB;
+
+    descriptor = open("bigfile", O_RDONLY);
+    
+    GetRdtscpValue(&low1, &high1);
+
+    for (i = 0; i < 1000; i++)
+    {
+        pread(descriptor, buffer, ONE_KB, GetPseudoRand() % kbFilesize);
+    }
+
+    GetRdtscpValue(&low2, &high2);
+
+    close(descriptor);
+
+    free(buffer);
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
