@@ -1,0 +1,45 @@
+Patrick Bird
+CSE 221
+Homework #3
+patbird@gmail.com
+
+1)
+
+a)  One of the concerns of the designers of VAX/VMS is the cost of pages being swapped out to disk.  In tradional operating systems, pages are replaced in a global sense.  The OS will usually page out pages based upon LRU, which might swap out an entire process.  Thus, when it the process is switched back to, it needs to swap all the pages back in.  This process is really I/O intensive and expensive.
+
+Hence, having a kernel stack in the user-level portion of the address space allowed each process to have more fine-grained control on what pages to swap out.  VAX/VMS's two key software mechanisms - the pager and the swapper - ran within each process and used these kernel stacks.  Having these mechanisms runs at a per-process level helped limit the I/O and swaps to disk.  Some of the data structures these mechanisms used are the resident set and free-list.
+
+b)  The memory pages that this kernel stack resides in is protected by the page table.  Each page table entry has various fields that protect the page.  For instance, bits 30-27 are the protection field and they specify the privilege required to read or write.  The hardware checks this protection during access.  If there is an illegal access attempted, the page will not be loaded.
+
+c)  Modern operating systems like Linux need to allocate kernel stacks in OS space because regular commodity memory hardware which Linux targets does not have special hardware to do protection checks.  The reason that this hardware is not available is most likely cost.  These hardware checks would make the hardware more complex and hence more costly.  Since hardware cannot create that protection, Linux and other OSs must provide that protection in software.  And that's why the stack must live in kernel space.
+
+2)  The main reason why kernel threads don't have to worry about deadlock is because when a kernel thread is stopped, it is restarted later which would release the lock and allow the other thread to execute in time.  Scheduler activations on the other hand are never restarted after they're stopped.  A new scheduler activation needs to be created to inform the thread system that a thread has been stopped.  Thus, if this stopping happened when a thread grabbed a lock for the thread ready list, it wouldn't be started again to release that lock and there would be deadlock when the system tries to put it on the thread ready list.
+
+3)  Transfer rates in the old system degrade over time because the block size is only 512 bytes and the inodes and the data blocks are stored at separate areas of the disk.  Initially, the access speed is good because data is stored sequentially and locality is good.  However, as files and directories are deleted and added, file access becomes a lot more random instead of sequential.  So that means a large file that is broken up into many chunks are spread out randomly over the disk.  Thus, there is almost a seek with every read as the file system grows older in the old system.
+
+The new system doesn't have this problem as much because it has a larger block size so there aren't as many reads and it uses cylinder groups to maintain locality when doing disk reads and writes.  Files and files within the same directory are placed within the same cylinder group.  Also their indoes are too.  However, since there are usually multiple cylinder groups on a disk, there must be space within each cylinder group to allocate for new files.  When the FFS file system's free space limit drops below the threshold (usual is 10%), it's difficult for the file system to give locality to the files and the transfer rate would start deterioating since there would be more seek time involved.
+
+4.1)  The three disk operations are:
+	a) Update list of free inodes
+	b) Update inode
+	c) Update directory d with filename f and inode number
+
+4.2)  For FFS, the metadata in the inodes and the directory data itself will need to be synchronous.  And the inode itself should be updated before the directory data.  The reason for the inode being updated before the directory data is if a failure happened between these two writes, there would be an updated and allocated inode, but it wouldn't be linked with the directory data which wouldn't be bad.  The inode would merely be an orphan.  However, if done the other way, you would risk having the directory data updated with an uninitialized inode which would be detrimental if there were a failure between these two writes.  The write to the list of free inodes is not as critical because this list can be constructed through other means if there is a failure.
+
+4.3)  Except for two cases, the Soft Updates solution does not do synchronous writes.  It only does synchronous writes if the user explicitly requests it or when there is a mounting or unmounting of a file system.  Otherwise, the Soft Updates solution employs delayed writes.  Soft Updates can do delayed writes because it builds a list of dependencies at the field/pointer level for all dirty blocks.  It maintains both a 'before' and 'after' version for each update.  It does this so when it writes a dirty block to disk, it will temporarily undo any pending dependency changes.  After the write is complete, it restores the state of the block back and unlocks it.  By managing this dependency list and before/after state, Soft Updates can employ delayed writes instead of synchronous ones for this scenario.
+
+4.4)  Like the Soft Updates solution, LFS also does asynchronous writes.  LFS does writes in segments, which are large fixed-size extents.  And the segments are written in total from beginning to end to maximize disk bandwidth.  So either the entire segment is written or it is not.  If a failure happens during one of these writes, LFS employs a two-pronged solution of checkpoints and roll-forwards.  Checkpoints define consistent states of the file system and a roll-forward is the mechanism to recover information since the last checkpoint.  During a roll-forward, LFS will use segment summary blocks to recover file data.  It handles different file system entities differently to ensure consistency.  For instance, if it finds a new inode, it will update the inode map.  
+
+And for this particulare case of directory and inode consistency, it outputs a special record in the log for each directory change called the directory operation log.  LFS culls the different records of this log such as create, link, rename and unlink and enforces different rules to maintain directory/inode consistency.
+
+4.5)  In Rio, reliability-induced writes to disk are no longer needed becasue they effectively treat main memory as disk.  To ensure reliability, rio protects memory during a crash and restoring it during a reboot.  Rio utilizes two Unix caches.  THe first one for metadata, directories, symbolic links are in the tradional Unix buffer cache.  And files are stored in the Unified Buffer Cache.
+
+Remarkably, Rio only writes to disk when these buffers overflow.  Thus dirty blocks can exist in main memory for a long time.  When Rio writes to main memory, it takes the same precautions as a system would with disk.  So it orders the metadata writes to disk.  And it guarantees atomicity when writing critical metadata in main memory.  It does this by copying the metadata to a shadow page, have the registry entry point there, and after the update is done, make the registry entry point to the original.
+
+They employ a "warm reboot" for system crashes.  This action essentially reads the cache contents and updates the file system with it.  One of the key structures they maintain is the registry which defines all the information to find, identify, and restore files.
+
+5)  An eager writing strategy would not help the log-structured file system much.  From what I can gather, the performance would be about the same.  In some ways, this is what the log-structured file system is trying to exploit is minimizing the random movement of the head.  And it seems as if that is also what eager writing is trying to do.  It's trying to minimize random seeks.
+
+However, the log-structured file system is to work with disk structures called segments which are a series of large fixed-size extents.  The idea behind segments is that they would be written to from beginning to end.  And then any live data must be copied out of these before the segments could be recycled.
+
+Adding eager writing on top of this strategy doesn't add or subtract overhead.  In a log-structured file system, writes are already written, more or less, where the disk head is located.  The idea is for the head to move from the beginning to the end of a segment.  If it hits a segment of long-lived live data, it will skip it.  But that would be the strategy of the eager write as well since it would be on the lookout for the next available block.

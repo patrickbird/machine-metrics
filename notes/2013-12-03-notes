@@ -1,0 +1,60 @@
+MapReduce
+----------
+
+Input & Output: each a set of key/value pairs
+Programmer specifies two functions:
+
+map(in_key, in_value) -> list(out_key, intermediate_value)
+
+reduce(out_key, Iterator intermediate_values) -> list(out_key, out_value)
+
+Implementatin Overview
+- 100s/1000s of 2-CPU x86 machines, 2-4 GB of memory
+- Limited bisection bandwidth
+
+Task granularity and pipelining
+- Fine granularity tasks: many more map tasks than machines
+	- minimizes time for fault recovery
+	- can pipeline shuffling with map execution
+	- better dynamic load balancing
+
+Master program divides up tasks based on location of data
+- asks GFS for locations of replicas of input file blocks
+- map tasks typically split into 64MB (GFS block size)
+
+Master detects worker failures
+- Detect failure via periodic heartbeats
+- re-executes completed & in-progress map() tasks
+- re-executes in-progress reduce() tasks
+
+Master notices particular input key/values cause crashes in map(), and skips those values on re-execution
+- effect: can work around bugs in third-party libraries
+- acceptable for big data computing
+
+"Stragler" lengthen completion time
+- other jobs consuming resources on machine
+- Bad disks with soft errors transfer data very slowly
+- weird things: processor caches disabled (!!)
+
+Solution: near end of phase, spawn backup copies of tasks
+- whichever one finishes first "wins"
+
+Haystack
+--------
+
+What does this mean to our system?
+
+Metadata bottleneck
+- each image stored as a file
+- large metadata size severely limits the meatadata hit ratio
+
+Image read performance
+- 10 iops / image read (large dir - thousands of files)
+- 3 iops / image read (smaller dir - hundreds of files)
+- 2.5 iops / image read 
+
+Haystack Store
+- Replaces storage and photo server
+
+
+

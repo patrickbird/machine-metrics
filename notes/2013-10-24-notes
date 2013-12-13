@@ -5,7 +5,7 @@ What is grapevine?
 - distributed message and registration service
 - provides mail services, and naming and access control
 
-Perhaps the most interesting theme in Grapevine is the tradeoof between transparency and ease of design/implementation.
+Perhaps the most interesting theme in Grapevine is the tradeoff between transparency and ease of design/implementation.
 
 Load balancing is important in case a machine goes down
 

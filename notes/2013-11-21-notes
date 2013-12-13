@@ -1,0 +1,36 @@
+TaintDroid
+----------
+
+ARM dominates the mobile market instead of Intel.
+
+Enabling and simplifying the reuse of components
+
+Dalvik virtual machine
+- providing environment on which every android application runs
+- executing the dalvik executable (.dex)
+		.java => .class => .dex
+
+Relying on Linux Kernel 2.6 for core system services
+- memory and process management
+- network stack
+- driver model
+- security
+
+Providing an abstracton layer between the H/W and the rest of the S/W stack
+
+How does taint-tracking work?
+1) Identifies sensitive data
+2) Taints and tracks data flow via
+- variables, messages, methods, and files
+3) Monitors behaviour of running applications in realtime
+4) Identifies misuse of private data
+
+TaintDroid is a system-wide integration of taint tracking into the Android platform
+- variable tracking throughout Dalvik VM environment
+- patches state after native method invocation
+- extends tracking between applications and to storage
+
+Cells
+-----
+
+Now a startup called CellRox
