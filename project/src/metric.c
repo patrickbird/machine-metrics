@@ -223,11 +223,11 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Local File Read (256 MB)",
     "Local File Read (512 MB)",
     "Local File Read (1 GB)",
-    "Local File Read (2 GB)",
-    "Local File Read (4 GB)",
-    "Local File Read (8 GB)",
-    "Local File Read (16 GB)",
-    "Local File Read (32 GB)",
+    //"Local File Read (2 GB)",
+    //"Local File Read (4 GB)",
+    //"Local File Read (8 GB)",
+    //"Local File Read (16 GB)",
+    //"Local File Read (32 GB)",
 
     "Local File Random Read (1 MB)",
     "Local File Random Read (2 MB)",
@@ -240,11 +240,11 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Local File Random Read (256 MB)",
     "Local File Random Read (512 MB)",
     "Local File Random Read (1 GB)",
-    "Local File Random Read (2 GB)",
-    "Local File Random Read (4 GB)",
-    "Local File Random Read (8 GB)",
-    "Local File Random Read (16 GB)",
-    "Local File Random Read (32 GB)",
+    //"Local File Random Read (2 GB)",
+    //"Local File Random Read (4 GB)",
+    //"Local File Random Read (8 GB)",
+    //"Local File Random Read (16 GB)",
+    //"Local File Random Read (32 GB)",
 
     "Remote File Read (1 MB)",
     "Remote File Read (2 MB)",
@@ -257,11 +257,11 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Remote File Read (256 MB)",
     "Remote File Read (512 MB)",
     "Remote File Read (1 GB)",
-    "Remote File Read (2 GB)",
-    "Remote File Read (4 GB)",
-    "Remote File Read (8 GB)",
-    "Remote File Read (16 GB)",
-    "Remote File Read (32 GB)",
+    //"Remote File Read (2 GB)",
+    //"Remote File Read (4 GB)",
+    //"Remote File Read (8 GB)",
+    //"Remote File Read (16 GB)",
+    //"Remote File Read (32 GB)",
 
     "Remote File Random Read (1 MB)",
     "Remote File Random Read (2 MB)",
@@ -274,11 +274,11 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Remote File Random Read (256 MB)",
     "Remote File Random Read (512 MB)",
     "Remote File Random Read (1 GB)",
-    "Remote File Random Read (2 GB)",
-    "Remote File Random Read (4 GB)",
-    "Remote File Random Read (8 GB)",
-    "Remote File Random Read (16 GB)",
-    "Remote File Random Read (32 GB)",
+    //"Remote File Random Read (2 GB)",
+    //"Remote File Random Read (4 GB)",
+    //"Remote File Random Read (8 GB)",
+    //"Remote File Random Read (16 GB)",
+    //"Remote File Random Read (32 GB)",
 
 };
 
@@ -431,7 +431,7 @@ extern void InitializeMetrics(int sampleCount)
         _metrics[i].Arguments[0] = (int)pow(2, i - FILE_CACHE_1MB);
     }
 
-    for (i = FILE_READ_1MB; i <= FILE_READ_32GB; i++)
+    for (i = FILE_READ_1MB; i <= FILE_READ_1GB; i++)
     {
         _metrics[i].Measure = MeasureFileRead;
         _metrics[i].Arguments = calloc(2, sizeof(int));
@@ -439,27 +439,27 @@ extern void InitializeMetrics(int sampleCount)
         _metrics[i].Arguments[1] = 1; // is local
     }
 
-    for (i = FILE_RANDOM_READ_1MB; i <= FILE_RANDOM_READ_32GB; i++)
+    for (i = FILE_RANDOM_READ_1MB; i <= FILE_RANDOM_READ_1GB; i++)
     {
         _metrics[i].Measure = MeasureFileRandomRead;
         _metrics[i].Arguments = calloc(2, sizeof(int));
-        _metrics[i].Arguments[0] = (int)pow(2, i - FILE_CACHE_1MB);
+        _metrics[i].Arguments[0] = (int)pow(2, i - FILE_RANDOM_READ_1MB);
         _metrics[i].Arguments[1] = 1; // is local
     }
 
-    for (i = REMOTE_FILE_READ_1MB; i <= REMOTE_FILE_READ_32GB; i++)
+    for (i = REMOTE_FILE_READ_1MB; i <= REMOTE_FILE_READ_1GB; i++)
     {
         _metrics[i].Measure = MeasureFileRead;
         _metrics[i].Arguments = calloc(2, sizeof(int));
-        _metrics[i].Arguments[0] = (int)pow(2, i - FILE_CACHE_1MB);
+        _metrics[i].Arguments[0] = (int)pow(2, i - REMOTE_FILE_READ_1MB);
         _metrics[i].Arguments[1] = 0; // is local
     }
 
-    for (i = REMOTE_FILE_RANDOM_READ_1MB; i <= REMOTE_FILE_RANDOM_READ_32GB; i++)
+    for (i = REMOTE_FILE_RANDOM_READ_1MB; i <= REMOTE_FILE_RANDOM_READ_1GB; i++)
     {
         _metrics[i].Measure = MeasureFileRandomRead;
         _metrics[i].Arguments = calloc(2, sizeof(int));
-        _metrics[i].Arguments[0] = (int)pow(2, i - FILE_CACHE_1MB);
+        _metrics[i].Arguments[0] = (int)pow(2, i - REMOTE_FILE_RANDOM_READ_1MB);
         _metrics[i].Arguments[1] = 0; // is local
     }
 }
@@ -1278,18 +1278,20 @@ static uint64_t MeasureFileCache(int * arguments)
 static uint64_t MeasureFileRead(int * arguments)
 {
     int filesize = arguments[0];
+    int isLocal = arguments[1];
     int low1, low2, high1, high2;
     int descriptor;
-    char * buffer = calloc(ONE_MB, sizeof(char));
+    char * buffer = calloc(ONE_KB, sizeof(char));
     int i = 0;
+    char * filename = (isLocal) ? "bigfile" : "/illumina/scratch/BaconSoftware/Analysis_Apps/Latest/Images/fastq_Wrap-ChgSet-210888_Isis-2.4.56.img";
 
-    descriptor = open("bigfile", O_RDONLY);
+    descriptor = open(filename, O_RDONLY);
     
     GetRdtscpValue(&low1, &high1);
 
     for (i = 0; i < filesize; i++)
     {
-        pread(descriptor, buffer, ONE_MB, i * ONE_MB);
+        pread(descriptor, buffer, ONE_KB, i * ONE_KB);
     }
 
     GetRdtscpValue(&low2, &high2);
@@ -1310,7 +1312,7 @@ static uint64_t MeasureFileRandomRead(int * arguments)
     char * buffer = calloc(ONE_KB, sizeof(char));
     int i = 0; 
     int kbFilesize = filesize * ONE_KB;
-    char * filename = (isLocal) ? "bigfile" : "";
+    char * filename = (isLocal) ? "bigfile" : "/illumina/scratch/BaconSoftware/Analysis_Apps/Latest/Images/fastq_Wrap-ChgSet-210888_Isis-2.4.56.img";
 
 
     descriptor = open(filename, O_RDONLY);
@@ -1327,6 +1329,56 @@ static uint64_t MeasureFileRandomRead(int * arguments)
     close(descriptor);
 
     free(buffer);
+
+    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+}
+
+static void * ThreadReadBlock(void * arguments)
+{
+    int number = ((int *)arguments)[0];
+    char * buffer = calloc(ONE_MB, sizeof(char));
+    char filename[3];
+    int descriptor;
+
+    sprintf(filename, "%d", number);
+    descriptor = open(filename, O_RDONLY);
+
+    pthread_cond_wait(&_condition, &_mutex);
+
+    read(descriptor, buffer, ONE_MB);
+
+    free(buffer);
+}
+
+static uint64_t MeasureContention(int * arguments)
+{
+    int threadCount = arguments[0];
+    pthread_t threads[20];
+    int threadArgs[20];
+    int i;
+    int low1, high1, low2, high2;
+
+    pthread_cond_init(&_condition, NULL);
+    pthread_mutex_init(&_mutex, NULL);
+
+    for (i = 0; i < threadCount; i++)
+    {
+        threadArgs[i] = i;
+        pthread_create(&threads[i], NULL, ThreadReadBlock, &threadArgs[i]);
+    }
+
+    usleep(10000000);
+
+    pthread_cond_broadcast(&_condition);
+
+    GetRdtscpValue(&low1, &high1);
+
+    for (i = 0; i < threadCount; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+
+    GetRdtscpValue(&low2, &high2);
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
