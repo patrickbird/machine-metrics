@@ -5,5 +5,6 @@
 *.o
 *.s
 *.pptx
+*.bin
 measure
 bigfile

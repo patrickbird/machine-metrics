@@ -279,6 +279,27 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     //"Remote File Random Read (8 GB)",
     //"Remote File Random Read (16 GB)",
     //"Remote File Random Read (32 GB)",
+    
+    "Contention (1 Thread)",
+    "Contention (2 Threads)",
+    "Contention (3 Threads)",
+    "Contention (4 Threads)",
+    "Contention (5 Threads)",
+    "Contention (6 Threads)",
+    "Contention (7 Threads)",
+    "Contention (8 Threads)",
+    "Contention (9 Threads)",
+    "Contention (10 Threads)",
+    "Contention (11 Threads)",
+    "Contention (12 Threads)",
+    "Contention (13 Threads)",
+    "Contention (14 Threads)",
+    "Contention (15 Threads)",
+    "Contention (16 Threads)",
+    "Contention (17 Threads)",
+    "Contention (18 Threads)",
+    "Contention (19 Threads)",
+    "Contention (20 Threads)",
 
 };
 
@@ -325,6 +346,7 @@ static uint64_t MeasureTcpTeardown(int * arguments);
 static uint64_t MeasureFileCache(int * arguments);
 static uint64_t MeasureFileRead(int * arguments);
 static uint64_t MeasureFileRandomRead(int * arguments);
+static uint64_t MeasureContention(int * arguments);
 
 extern void InitializeMetrics(int sampleCount)
 {
@@ -461,6 +483,13 @@ extern void InitializeMetrics(int sampleCount)
         _metrics[i].Arguments = calloc(2, sizeof(int));
         _metrics[i].Arguments[0] = (int)pow(2, i - REMOTE_FILE_RANDOM_READ_1MB);
         _metrics[i].Arguments[1] = 0; // is local
+    }
+
+    for (i = CONTENTION_THREAD_1; i <= CONTENTION_THREAD_20; i++)
+    {
+        _metrics[i].Measure = MeasureContention;
+        _metrics[i].Arguments = calloc(1, sizeof(int));
+        _metrics[i].Arguments[0] = i - CONTENTION_THREAD_1 + 1;
     }
 }
 
@@ -1333,6 +1362,8 @@ static uint64_t MeasureFileRandomRead(int * arguments)
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
+pthread_barrier_t * _barrier;
+
 static void * ThreadReadBlock(void * arguments)
 {
     int number = ((int *)arguments)[0];
@@ -1340,12 +1371,14 @@ static void * ThreadReadBlock(void * arguments)
     char filename[3];
     int descriptor;
 
-    sprintf(filename, "%d", number);
+    sprintf(filename, "%d.bin", number);
     descriptor = open(filename, O_RDONLY);
 
-    pthread_cond_wait(&_condition, &_mutex);
+    pthread_barrier_wait(_barrier);
 
     read(descriptor, buffer, ONE_MB);
+
+    close(descriptor);
 
     free(buffer);
 }
@@ -1358,18 +1391,15 @@ static uint64_t MeasureContention(int * arguments)
     int i;
     int low1, high1, low2, high2;
 
-    pthread_cond_init(&_condition, NULL);
-    pthread_mutex_init(&_mutex, NULL);
+    _barrier = calloc(1, sizeof(pthread_barrier_t));
+
+    pthread_barrier_init(_barrier, NULL, threadCount);
 
     for (i = 0; i < threadCount; i++)
     {
-        threadArgs[i] = i;
+        threadArgs[i] = i + 1;
         pthread_create(&threads[i], NULL, ThreadReadBlock, &threadArgs[i]);
     }
-
-    usleep(10000000);
-
-    pthread_cond_broadcast(&_condition);
 
     GetRdtscpValue(&low1, &high1);
 
@@ -1379,6 +1409,9 @@ static uint64_t MeasureContention(int * arguments)
     }
 
     GetRdtscpValue(&low2, &high2);
+
+    pthread_barrier_destroy(_barrier);
+    free(_barrier);
 
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
