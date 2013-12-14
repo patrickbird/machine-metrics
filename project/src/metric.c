@@ -301,6 +301,27 @@ static const char * MetricNames[MEASUREMENT_COUNT] =
     "Contention (19 Threads)",
     "Contention (20 Threads)",
 
+    "Contention (21 Thread)",
+    "Contention (22 Threads)",
+    "Contention (23 Threads)",
+    "Contention (24 Threads)",
+    "Contention (25 Threads)",
+    "Contention (26 Threads)",
+    "Contention (27 Threads)",
+    "Contention (28 Threads)",
+    "Contention (29 Threads)",
+    "Contention (30 Threads)",
+    "Contention (31 Threads)",
+    "Contention (32 Threads)",
+    "Contention (33 Threads)",
+    "Contention (34 Threads)",
+    "Contention (35 Threads)",
+    "Contention (36 Threads)",
+    "Contention (37 Threads)",
+    "Contention (38 Threads)",
+    "Contention (39 Threads)",
+    "Contention (40 Threads)",
+
 };
 
 static int _dummy;
@@ -486,7 +507,7 @@ extern void InitializeMetrics(int sampleCount)
         _metrics[i].Arguments[1] = 0; // is local
     }
 
-    for (i = CONTENTION_THREAD_1; i <= CONTENTION_THREAD_20; i++)
+    for (i = CONTENTION_THREAD_1; i <= CONTENTION_THREAD_40; i++)
     {
         _metrics[i].Measure = MeasureContention;
         _metrics[i].Arguments = calloc(1, sizeof(int));
@@ -803,12 +824,12 @@ static uint64_t MeasureProcedureCall(int * arguments)
 
 static uint64_t MeasureSystemCall(int * arguments)
 {
-    pid_t pid;
+    time_t unixTime;
     unsigned int low1, high1, low2, high2;
 
     GetRdtscpValue(&low1, &high1);
 
-    pid = getpid();
+    time(&unixTime);
 
     GetRdtscpValue(&low2, &high2);
 
@@ -1404,8 +1425,8 @@ static void * ThreadReadBlock(void * arguments)
 static uint64_t MeasureContention(int * arguments)
 {
     int threadCount = arguments[0];
-    pthread_t threads[20];
-    int threadArgs[20];
+    pthread_t threads[40];
+    int threadArgs[40];
     int i;
     unsigned int low, high;
     uint64_t minTime = UINT64_MAX;
