@@ -309,6 +309,7 @@ static int   _memory[ONE_GB];
 
 static pthread_mutex_t _mutex;
 static pthread_cond_t _condition;
+static pthread_barrier_t * _barrier;
 
 static void UpdateMetric(enum MEASUREMENT measurement, int index);
 static void UpdateMeasurementCalculations(enum MEASUREMENT measurement);
@@ -457,7 +458,7 @@ extern void InitializeMetrics(int sampleCount)
     {
         _metrics[i].Measure = MeasureFileRead;
         _metrics[i].Arguments = calloc(2, sizeof(int));
-        _metrics[i].Arguments[0] = (int)pow(2, i - FILE_CACHE_1MB);
+        _metrics[i].Arguments[0] = (int)pow(2, i - FILE_READ_1MB);
         _metrics[i].Arguments[1] = 1; // is local
     }
 
@@ -1115,7 +1116,7 @@ static uint64_t MeasureRamRead(int * arguments)
 static uint64_t MeasurePageFault(int * arguments)
 {
     FILE * file;
-    int low1, low2, high1, high2;
+    unsigned int low1, low2, high1, high2;
     int dummy;
     uint64_t seekPos;    
     uint64_t diff;
@@ -1155,7 +1156,9 @@ static uint64_t MeasureTcpRoundTrip(int * arguments)
     struct sockaddr_in server;
     char * txMessage = "Hello World";
     char rxMessage[100];
-    int low1, low2, high1, high2;
+    unsigned int low1, low2, high1, high2;
+    int bufferLength = strlen(txMessage);
+    int i;
 
     descriptor = socket(AF_INET, SOCK_STREAM, 0);
     
@@ -1166,10 +1169,13 @@ static uint64_t MeasureTcpRoundTrip(int * arguments)
     connect(descriptor, (const struct sockaddr *)&server, sizeof(server));
    
     GetRdtscpValue(&low1, &high1);
+    
+    for (i = 0; i < 1000; i++)
+    {
+        send(descriptor, txMessage, bufferLength, 0);
 
-    send(descriptor, txMessage, strlen(txMessage), 0);
-
-    recv(descriptor, rxMessage, strlen(txMessage), 0); 
+        recv(descriptor, rxMessage, bufferLength, 0); 
+    }
 
     GetRdtscpValue(&low2, &high2);
 
@@ -1177,18 +1183,19 @@ static uint64_t MeasureTcpRoundTrip(int * arguments)
 
     close(descriptor);
 
-    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+    return (GetUint64Value(low2, high2) - GetUint64Value(low1, high1)) / 1000UL;
 }
 
 static uint64_t MeasureTcpBandwidth(int * arguments)
 {
     int descriptor;
     struct sockaddr_in server;
-    char * txMessage = "Hello World";
-    char rxMessage[100];
-    int low1, low2, high1, high2;
+    //char * txMessage = "Hello World";
+    char message[1400];
+    unsigned int low1, low2, high1, high2;
     int i;
 
+    memset(message, 0x5A, 1400);
     descriptor = socket(AF_INET, SOCK_STREAM, 0);
     
     server.sin_family = AF_INET;
@@ -1201,9 +1208,9 @@ static uint64_t MeasureTcpBandwidth(int * arguments)
 
     for (i = 0; i < 1000; i++)
     {
-        send(descriptor, txMessage, strlen(txMessage), 0);
+        send(descriptor, message, strlen(message), 0);
 
-        recv(descriptor, rxMessage, strlen(txMessage), 0); 
+        recv(descriptor, message, strlen(message), 0); 
     }
 
     GetRdtscpValue(&low2, &high2);
@@ -1222,7 +1229,7 @@ static uint64_t MeasureTcpSetup(int * arguments)
     struct sockaddr_in server;
     char * txMessage = "Hello World";
     char rxMessage[100];
-    int low1, low2, high1, high2;
+    unsigned int low1, low2, high1, high2;
     
     GetRdtscpValue(&low1, &high1);
 
@@ -1253,7 +1260,7 @@ static uint64_t MeasureTcpTeardown(int * arguments)
     struct sockaddr_in server;
     char * txMessage = "Hello World";
     char rxMessage[100];
-    int low1, low2, high1, high2;
+    unsigned int low1, low2, high1, high2;
 
     descriptor = socket(AF_INET, SOCK_STREAM, 0);
     
@@ -1281,19 +1288,21 @@ static uint64_t MeasureTcpTeardown(int * arguments)
 static uint64_t MeasureFileCache(int * arguments)
 {
     int filesize = arguments[0];
-    int low1, low2, high1, high2;
+    unsigned int low1, low2, high1, high2;
     FILE * stream;
-    char * buffer = calloc(ONE_MB, sizeof(char));
+    char * buffer = calloc(ONE_MB * filesize, sizeof(char));
     int i = 0;
 
     stream = fopen("bigfile", "r");
     
     GetRdtscpValue(&low1, &high1);
 
-    for (i = 0; i < filesize; i++)
-    {
-        fread(buffer, sizeof(char), ONE_MB, stream);
-    }
+    //for (i = 0; i < filesize; i++)
+    //{
+    //    fread(buffer, sizeof(char), ONE_MB, stream);
+    //}
+
+    fread(buffer, sizeof(char), ONE_MB * filesize, stream);
 
     GetRdtscpValue(&low2, &high2);
 
@@ -1308,9 +1317,9 @@ static uint64_t MeasureFileRead(int * arguments)
 {
     int filesize = arguments[0];
     int isLocal = arguments[1];
-    int low1, low2, high1, high2;
+    unsigned int low1, low2, high1, high2;
     int descriptor;
-    char * buffer = calloc(ONE_KB, sizeof(char));
+    char * buffer = calloc(ONE_MB * filesize, sizeof(char));
     int i = 0;
     char * filename = (isLocal) ? "bigfile" : "/illumina/scratch/BaconSoftware/Analysis_Apps/Latest/Images/fastq_Wrap-ChgSet-210888_Isis-2.4.56.img";
 
@@ -1318,10 +1327,13 @@ static uint64_t MeasureFileRead(int * arguments)
     
     GetRdtscpValue(&low1, &high1);
 
-    for (i = 0; i < filesize; i++)
+    printf("Filesize %d %d\n", ONE_KB * filesize, filesize);
+    for (i = 0; i < ONE_KB * filesize; i++)
     {
         pread(descriptor, buffer, ONE_KB, i * ONE_KB);
     }
+
+    //read(descriptor, buffer, ONE_KB * filesize);
 
     GetRdtscpValue(&low2, &high2);
 
@@ -1336,7 +1348,7 @@ static uint64_t MeasureFileRandomRead(int * arguments)
 {
     int filesize = arguments[0];
     int isLocal = arguments[1];
-    int low1, low2, high1, high2;
+    unsigned int low1, low2, high1, high2;
     int descriptor;
     char * buffer = calloc(ONE_KB, sizeof(char));
     int i = 0; 
@@ -1348,7 +1360,7 @@ static uint64_t MeasureFileRandomRead(int * arguments)
     
     GetRdtscpValue(&low1, &high1);
 
-    for (i = 0; i < 1000; i++)
+    for (i = 0; i < kbFilesize; i++)
     {
         pread(descriptor, buffer, ONE_KB, GetPseudoRand() % kbFilesize);
     }
@@ -1362,25 +1374,31 @@ static uint64_t MeasureFileRandomRead(int * arguments)
     return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
 }
 
-pthread_barrier_t * _barrier;
-
 static void * ThreadReadBlock(void * arguments)
 {
     int number = ((int *)arguments)[0];
     char * buffer = calloc(ONE_MB, sizeof(char));
     char filename[3];
     int descriptor;
+    unsigned int low, high;
+    uint64_t * value = calloc(1, sizeof(uint64_t));
 
     sprintf(filename, "%d.bin", number);
     descriptor = open(filename, O_RDONLY);
 
     pthread_barrier_wait(_barrier);
 
+    GetRdtscpValue(&low, &high);
+
     read(descriptor, buffer, ONE_MB);
 
     close(descriptor);
 
     free(buffer);
+
+    *value = GetUint64Value(low, high);
+
+    pthread_exit(value);
 }
 
 static uint64_t MeasureContention(int * arguments)
@@ -1389,7 +1407,8 @@ static uint64_t MeasureContention(int * arguments)
     pthread_t threads[20];
     int threadArgs[20];
     int i;
-    int low1, high1, low2, high2;
+    unsigned int low, high;
+    uint64_t minTime = UINT64_MAX;
 
     _barrier = calloc(1, sizeof(pthread_barrier_t));
 
@@ -1401,18 +1420,23 @@ static uint64_t MeasureContention(int * arguments)
         pthread_create(&threads[i], NULL, ThreadReadBlock, &threadArgs[i]);
     }
 
-    GetRdtscpValue(&low1, &high1);
-
     for (i = 0; i < threadCount; i++)
-    {
-        pthread_join(threads[i], NULL);
+    {   
+        uint64_t * time;
+
+        pthread_join(threads[i], (void**)&time);
+
+        if (time[0] < minTime)
+        {
+            minTime = time[0];
+        }
     }
 
-    GetRdtscpValue(&low2, &high2);
+    GetRdtscpValue(&low, &high);
 
     pthread_barrier_destroy(_barrier);
     free(_barrier);
 
-    return GetUint64Value(low2, high2) - GetUint64Value(low1, high1);
+    return GetUint64Value(low, high) - minTime;
 }
 
