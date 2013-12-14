@@ -1,7 +1,0 @@
-#!/bin/bash
-
-for i in {1..20}
-do
-	head -c 1048576 bigfile > $i.bin
-    #rm $i
-done
