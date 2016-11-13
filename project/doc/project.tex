@@ -72,7 +72,7 @@
         \normalfont \normalsize \textsc{} \\ [25pt]
         \horrule{0.5pt} \\[0.4cm]
         \huge CSE 221 Final Project \\
-        \huge       Draft 2         \\
+        \huge       Final Report         \\
         \horrule{2pt} \\[0.5cm]
 }
 \author{
@@ -110,7 +110,32 @@ The memory size is 128 GB of DDR3 RAM.  The potential speed is 1600 MHZ, however
 
 The hard disk is a 1 TB hard disk drive at 7200 RPM.  The network card is full duplex gigabit ethernet.  The operating system is 64-bit CentOS v6.4, kernel version v2.6.32-358.11.1.
 
+Here is a summary of the system:
+
+\begin{center}
+\begin{tabular}{ |l|l| }
+  \hline
+  \multicolumn{2}{|c|}{System Specifications} \\
+  \hline
+  \# of processors & 2 \\
+  cores per processor & 6 \\
+  processor manufacturer & Intel Xeon E5-2620 \@ 2000.053 MHz \\
+  L1 Size (Data) & 32 KB \\
+  L1 Size (Instructions) & 32 KB \\
+  L2 Size & 256 KB \\
+  L3 Size & 15,360 KB \\
+  Instruction Pipeline & 17-20 stages \\
+  RAM & 128 GB DDR3 RAM \@ 1333 MHz \\
+  \# memory channels & 4 \\
+  Hard Disk & 7200 RPM (1 TB) \\
+  Network & Full Duplex Gigabit \\
+  Operating System & 64-bit CentOS v6.4, kernel v.2.6.32-358.11.1 \\
+  \hline
+\end{tabular}
+\end{center}
+
 \section{Operations}
+
 This section will describe various machine operations, how I estimated performance on them, and how I performed measurements to measure these operations and their corresponding results.  To begin with, this system is not a single RISC processor.  Unfortunatley for my current purposes, but to my computer's delight, there is not a one to one mapping between instructions and clock cycles.  At least for the first few operations, I couldn't merely just count up the instructions and add a little for overhead.
 
 As I mentioned in Section 2, these processsors have multi-cores three levels of cache, and a 17-20 stage pipeline, with an interprocessor communication mechanism.  Needless to say, estimating any sort of operation is difficult without an exhaustive knowledge of the internals of the processor and the system.  And even then, the estimation would still only be a ballpark figure.
@@ -128,7 +153,6 @@ All the measurements are in clock cycles.  However, a simple formula exists to c
 \begin{gather}
 time(s)=cycles/2,000,000,000 Hz
 \end{gather}
-
 
 \subsection{Measurement Overhead}
 
@@ -190,7 +214,7 @@ After running the experiment a 1000 times, I observe the following results:
     \begin{tabular}{ | l | l | l | l |}
     \hline
     Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
-    33 cycles & 5 cycles & 38 cycles & 47 cycles (24 ns) \\ 
+    5 cycles & 5 cycles & 10 cycles & 12 cycles (6 ns) \\ 
     \hline
     \end{tabular}
 \end{center}
@@ -256,7 +280,7 @@ Again, stepping on the shoulders of the RDTSCP measurement has been beneficial. 
     \end{tabular}
 \end{center}
 
-It is interesting to note that functions with two, three, four, and six arguments had the same average cost of 40 clock cycles.  Not to mention that all eight enumerations of functions are within five clock cyles of each other.  So in some ways there is a linear relationship between additional arguments and the time cost.  However, the cost is neglible.
+It is interesting to note that functions with two, three, four, and six arguments had the same average cost of 40 clock cycles.  Not to mention that all eight enumerations of functions are within five clock cyles of each other.  So in some ways there is a linear relationship between additional arguments and the time cost.  The linear relationshiop can be explained because each arguments is pushed on the stack when the function is called.  Thus, every argument will be a couple of instructions.  However, the cost is neglible.
 
 The various metrics for the different function calls are enumerated here:
 
@@ -280,13 +304,13 @@ The various metrics for the different function calls are enumerated here:
 
 \subsubsection{Estimation}
 
-For a system call, linux needs to trap into the OS. Thus, there is a heavier cost for a system call as opposed to a user call.  The same registers are pushed onto the stack as a user call.  But there also needs to be some sort of interrupt that happens and an elevation of privleges.  After the user function makes a system call,  the kernel traps into its own routine and takes over.  The kernel then figures out which system call to route to and saves all relevant user state so when it is done, it can transfer control flow back to the user process.  Within the system call itself will copy any releveant user data to its own address space and perform its operation.  After the work is finished, the kernel transfers control flow back to the user process.
+For a system call, linux needs to trap into the kernel. Thus, there is a heavier cost for a system call as opposed to a user call.  The same registers are pushed onto the stack as a user call.  But there also needs to be some sort of interrupt that happens and an elevation of privleges.  After the user function makes a system call,  the kernel traps into its own routine and takes over.  The kernel then figures out which system call to route to and saves all relevant user state so when it is done, it can transfer control flow back to the user process.  Within the system call itself will copy any releveant user data to its own address space and perform its operation.  After the work is finished, the kernel transfers control flow back to the user process.
 
 The system call is much more expensive than a normal function call because of the elevation of privleges.  Not to mention, there is more copying of data from user space to kernel space and back again.  And there is more state to save.
 
 In the case of a system call, there is more overhead in the operating system than hardware.  As far as hardware is concerned, the CPU will most likely have to fetch the procedure from kernel's address space when it needs to be loaded.  Since system calls happen fairly often, a lot of the instruction data will most likely already be in cache.  But this cost is very similar to a procedure in user space.  It is just in a different place in memory.  Thus, the hardware cost is the base from a user function call - 37 clock cycles.
 
-However, there is a greater cost to the OS here.  In my case, I will measure \textit{getpid()}.  There are at least seven different stages enumerated for this system call.  For each stage, I added an estimate.
+However, there is a greater cost to the OS here.  In my case, I will measure \textit{time()}.  There are at least seven different stages enumerated for this system call.  For each stage, I added an estimate.
 
 
 
@@ -310,13 +334,13 @@ In all, I estimate about 100 clock cycles will happen just for the operating sys
 
 \subsubsection{Measurement}
 
-This measurement is the first measurement where I was somewhat dramatically different than the estimation.  In fact, other than the very first call, which took 2427 clock cycles, the average call was a measly 42 clock cycles.  The minimum was 36!  This cost is barely above the user call.  One reason for this large disparity is most likely the efficiency of \textit{getpid()} itself.  The function does not probably take as long to execute at all.  It probably just looks up the address of the calling process in some memory mapped table.  Also, the transfer from user to kernel and back again is much faster than I had assumed.  Again, the address of the procedure must be executed right after the elevation of privleges.  And since no substantial user data needs to be copied, \textit{getpid()} is fairly efficient.
+The first time that this fuction was called, it took 3863 clock cycles.  On average, it was 147 clock cycles, about double what I expected.  This sytem call probably took a bit more time than I had expected because of some of the time logic that I did not account for.  Also, the crossing of boundaries is also probably more expensive than it was expected.
 
 \begin{center}
     \begin{tabular}{ | l | l | l | l |}
     \hline
     Hardware Estimate & Software Estimate & Total Estimate & Measurement \\ \hline
-    37 cycles & 100 cycles & 137 cycles & 42 cycles (21 ns) \\ 
+    37 cycles & 100 cycles & 137 cycles & 147 cycles (74 ns) \\ 
     \hline
     \end{tabular}
 \end{center}
@@ -339,7 +363,9 @@ The following statistical metrics are here.  Notice the cost of the initial call
 
 For task creation, there are two main different implementations to take advantage of in linux - processes and pthreads.  The former is invoked using \textit{fork()} where a new process will be created by its parent.  And the two will continue to share memory until a copy-on-write occurs.  This happens whenever one of the processes writes to a shared variable.  Now each process will have its own copy.
 
-A pthread on the other hand uses the \textit{pthread\_create()} function.  Here, there are two threads that share the same memory.  Synchronization is done with atomic shared memory objects like mutexs and condition variables.
+A pthread on the other hand is a primitive that allows for different threads to share the same memory space.  Linux provides several primitives for the pthreads to synchronize around.
+
+To create a pthread, one uses the \textit{pthread\_create()} function.  Here, there are two threads that share the same memory.  Synchronization is done with atomic shared memory objects like mutexs and condition variables.
 
 The hardware cost for forking a process will mostly be driven by any memory that needs to be copied from the parent to the child.  And it also involves updating any of the parent's address space.  Thus, the cost of creating a new address space for the child is the most significant cost.  Updating several of pages might take a good tens of thousands of clock cycles since the TLBs and cache need to be updated and the permissions need to be copied appropriately.  The cost of hardware is estimated to be 50,000 clock cycles.
 
@@ -789,8 +815,561 @@ The maximum read was an astounding 43 ms.  A perfect storm of circumstances coul
 
 Compared to accessing main memory, the average cost of reading a single byte from disk is 4835 clock cycles.  This value was calculated by taking the average time and dividing by the page size - 4096 bytes.  A single byte from main memory is 241 cycles / 4 cycles or ~ 60 cycles.  Thus, a single byte from hard disk is on the order of being 80 times more expensive than one from main memory.  
 
+\section{Network Operations}
+\subsection{Round Trip Time}
+\subsubsection{Methodology}
+
+Measuring round trip time is an important metric to understand when measuring a system's performance.  With web applications and services becoming more and more popular and sophisticated, optimizing round trip time is essential.  To understand round trip TCP time, I took advantage of the standard TCP Echo Protocol.
+
+The TCP Echo Protocol is conventially on TCP port 7.  Thus, in the \textit{MeasureTcpRoundTrip()} function, the first thing that happens is a socket file descriptor is created by calling the \textit{socket()} function.  Since the TCP protocol is being used, the address family \textbf{AF\_INET} is used, as well as \textbf{SOCK\_STREAM}.
+
+Next, a connection is made using the \textit{connect()} function.  In this function, either the local or remote host is specified along with port 7.  The timer is started after this, and \textit{Send()} is called, which creates the TCP packet with the "Hello World" payload.  The function \textit{recv()} is called next and the timer is stopped after \textit{recv()} returns.
+
+For both local and remote hosts, the \textit{xinetd} (Extended Internet daemon) daemon is utilized for the TCP echo server.  This daemon is a standard internet daemon that implements many of the standard TCP and UDP protocols.  This server merely echoes the message it receives on port 7 back out to the client.
+
+Thankfully, the machine that this gamut of tests has been run on is in a cluster of four other servers that are identical in every way.  Together, they make up a private cloud cluster that runs OpenStack and a host of other services.  So the remote host in question has the exact same hardware and specs as this current one.  Refer to Section 2 for both the local and remote host specs.  For convience, the network card is a 1 Gigabit, full-duplex card.  These machines are connected on Cat5 cable and are configured for 1000BASE-T speeds.
+
+For the ping request comparison, I used the \textbf{ping} utility included in Linux.  For knowing the exact size of the TCP packet, I utilized the \textbf{tcpdump} utility.
+
+\subsubsection{Estimation}
+
+The TCP packet itself will most likely be around 100 bytes with headers, payload, and checksums for TCP and its underlying layers.  For loopback, the hardware cost is taking the data, transferring it internally in the network interface card and receiving it back.  The hardware cost should be much smaller than the remote host.  Thus, the hardware cost of loopback is probably on the order of 10 us.
+
+The hardware cost for remote host will be much greater, because it will send the data onto the ethernet line and later receive it back over the line.  But the hardware cost is double because there are now two network interfaces - the local and the remote and the transfer over the wire.  Since this host is adjacent to the local machine, this is neglible.  And since these machines are on a private cluster, there will not be much network traffic that will provide collisions.  However, I will triple my estimate of 10 us for loopback to 30 us for remote.
+
+As far as the software overhead, there is the cost of writing to the socket.  The data is sent from the application to a kernel buffer and then transferred out the network interface.  There is also some uncertainty on when the kernel will send the data out of its buffer.  Thus, transferring the data from memory may take about 100 us and another 100 us of random delay inside the kernel since the time to send is indeterminate.
+
+For loopback, the data will then work its way back into a kernel buffer and back to the application which is double the send cost.  Thus, the software cost will be about 50 us for loopback.  For remote, the cost will be at least double.  Again, I will triple this value which will put it at 150 us for remote host.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l |}
+    \hline
+    Host & Hardware Estimate & Software Estimate & Total Estimate & Average Measurement \\      \hline
+    Local & 10 us & 50 us & 60 us & 49,526 cycles (24.7 us) \\ 
+    Remote & 30 us & 150 us & 180 us & 203,726 cycles (102 us) \\
+    \hline
+    \end{tabular}
+\end{center}
+
+\subsubsection{Measurement}
+
+The increase of network speed from local to remote was expected.  I had originally thought that the remote round trip would be about triple the loopback.  In this case, the remote round trip was about quadruple that of loopback.
+
+Remote ideally should be a little over double of what loopback is since it is pretty much doing everything loopback is doing, except doing it twice.  However, remote hosts add much more complexity such as network traffic and different machine workloads and configuration.  In this configuration, the machines are pretty much identical.  However, all too often this is not the case.
+
+Loopback is 24 us which is 38 times the ideal 0.64 us latency for a 64 byte TCP packet.  This increase shows that there is some significant overhead in how data is transferred from the application to the kernel and when the kernel actually send it out through the network interface.  It is not immeadiate and I think these latencies prove that theory.  For the remote host, there are now two kernels and four movements of data traveling up and down the network stack.  Mixed with collisions and network uncertainty, the measured values seem realistic.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l | l |}
+    \hline
+    Measurement & \# of Samples & First Iteration & Min & Max & Mean & Std Dev \\
+    \hline
+    Local & 100 iterations & 25 us & 18.5 us & 25.9 us & 24.7 us & 2.1 us \\ 
+    Remote & 100 iterations & 101 us & 99.2 us & 104 us & 101.9 us & 1.9 us \\
+    ping local & 10 iterations & 35 us & 15 us & 35 & 22 us & 8 us \\
+    ping remote & 10 iterations & 228 us & 158 us & 228 us & 197 us & 12 us \\
+    \hline
+    \end{tabular}
+\end{center}
+
+Comparing the \textbf{ping} request is interesting.  \textbf{ping} was faster for loopback.  And again, this is expected because the \textbf{ping} command is a system call into the kernel.  And the kernel sends an \textbf{ICMP} packet to the IP.  The results are faster for loopback.
+
+However, the remote TCP measurements were actually faster than what \textbf{ping} reported for remote.  This may be for a couple reasons.  For one, the TCP packets were sent 1000 at a time and then averaged.  Some of this throughput could have achieved a greater bandwidth over time compared to \textbf{ping} which might be more discrete with more initialization and teardown with each request.  I did notice that if only one TCP request was sent instead of 1000, the first one always took exceedingily longer than the rest of the packets.  It is for this reason why there might be some overhead in the \textbf{utility} for remote requests.
+
+\subsection{Peak Bandwidth}
+
+\subsubsection{Methodology}
+
+To measure peak bandwidth, the setup is identical to the round trip study.  Sockets are used for establishing a TCP connection.  One thousand packets are sent in a row with the timing starting right before and right after the last message is received.  Full duplex is measured for peak bandwidth.
+
+The biggest aspect that I needed to change for measuring peak bandwidth was the payload size.  For round trip, the payload was small - only 11 bytes.  This time, the plan was to maximize the MTU size which is 1500 bytes for Ethernet.  Thus, the TCP payload size was set at 1400 which gave 100 bytes for all the different headers.
+
+To attempt peak bandwidth, 1000 packets were sent contiguously.  This test was run 100 times to calculate an average and other metrics.  Again, the TCP Echo protocol is utilized.  Thus, for local and remote, \textbf{xinetd} is the echo server that responds to the TCP packets.
+
+\subsubsection{Estimation}
+
+Since peak bandwidth is tied closely to round trip time, I will use the value that was measured in round trip to inform the estimate here.  It took 24.7 us to send 64 bytes through loopback.  Or, in other words, it took about 385 ns to send and receive one byte.  This is equivalent to about 2.6 MB/s.
+
+Now if the payload is increased, there should be more throughput between the application and the kernel and the kernel and the network interface card.  Thus, there should hopefully be at least a 50\% improvement in data throughput.  Thus, the estimate for peak throughput should be around 1 byte every 190 ns or about 50 MBit.
+
+\subsubsection{Measurement}
+
+Using \textbf{tcpdump}, I was able to ascertain that the payload and the headers equaled 1477 bytes.  Thus, the total amount of data that is sent is 
+
+\begin{gather}
+total_size = 1477 bytes * 1000 iterations * 10 bits (for framing) \\
+total_size = 14,770,000 bits/second
+\end{gather}
+
+It took on average 173,179,873 clock cycles to send this amount of data through loopback, or 86.5 ms.  Thus, the bandwidth for localhost is 170 MBit/s.
+
+For the remote host, it took on average 418,700,386 clock cycles to send this amount of data or 209 ms.  Thus, the bandwidth for the remote host is 70 MBit/s.
+
+Again, these are disappointing results.  These speeds are nowhere near the theoretical limit of 1 Gbit/second.  There are a lot of reasons why this is though.  Running \textbf{tcpdump} during one of the trials showed a bunch of resends for the packets.  These are some of the packets that are not accounted for in this measurement.  Also there could be network collisions happening.  Not to mention, the current machine is a head node for a group of five compute nodes.  Thus, it has much network activity coordinating different virtual machine and compute efforts.  So these TCP packets were competing heavily with others.
+
+Another interesting note is that the maximum bandwidth for loopback was over 300 Mb/s, which is almost twice the average.  I think it is telling about the network load of this particular system.
+
+The bandwidth results are the following:
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l | l |}
+    \hline
+    Measurement & \# of Samples & First Iteration & Min & Max & Mean & Std Dev \\
+    \hline
+    Local & 100 iterations & 301.4 Mb/s & 112.8 Mb/s & 301.4 Mb/s & 170 Mb/s us & 13.2 Mb/s \\ 
+    Remote & 100 iterations & 69 MB/s & 66 MB/s & 73 Mb/s & 70 Mb/s & 9.8 Mb/s \\
+    \hline
+    \end{tabular}
+\end{center}
+
+\subsection{Connection Overhead}
+
+\subsubsection{Methodology}
+
+Measuring the TCP connection establishment is the act of measuring the two methods \textit{socket()} and \textit{connect()}.  The first function merely creates the socket and returns the file descriptor for the socket.  The latter function actually creates the TCP connection.  This TCP handshake is the operation of the client machine sending a SYN TCP packet.  The server responds with a SYN-ACK packet.  And finally the client sends an ACK packet which establishes the TCP connection.
+
+This handshaking was done in the previous TCP functions, but they were just not measured.  Since the TCP establishment is just a factor of these two functions, the timer starts before the \textit{socket()} function and the timer is stopped right after the \textit{connect()} function.
+
+For teardown, TCP termination is a four-way handshake.  Tearing down a TCP connection involves calling the \textit{shutdown()} function and \textit{close()}.  The \textit{shutdown()} function shuts down send and recieve functions for the associated socket.  And \textit{close()} actually closes the file descriptor associated with the socket.
+
+For teardown measurement, the start timer and end timer are wrapper around the \textit{shutdown()} and \textit{close()} functions.  For both establishment and teardown, the measurement is repeated 1000 times and then averaged.  As usual, other metrics such as min, max, and standard deviation are recorded as well.
+
+\subsubsection{Estimation}
+
+Again, the measurement for the TCP round trip is helpful here.  The average round trip measurement for a single TCP packet is about 25 us for localhost and 102 us for remote.  I imagine that the connection overhead will be a bit over this because there is about two round trips for handshaking.
+
+So I imagine that the total localhost connection would be a little under twice the round trip speed, which would probably be about 40 us.  For remote host, I imagine that it is also a little under twice the round trip which would be about 180 us.  
+
+For localhost, I would think that the majority of this speed would be software with hardware bearing a neglibile cost.  So, I will split the estimate 10\%/90\% as far as hardware software go.  The hardware cost is more for remote host which would probably be more like 20\%/80\% since there is more hardware involved and the data goes over the physical network.  For teardown, I expect the same ratios.
+
+I expect that initialization will take a little longer than teardown.  Some of this will be accounted as software overhead in the kernel for initializing memory for the new TCP connection.  Thus, the software cost for TCP setup will be a little longer than teardown.  I imagine that it will be about 10 us for initialization and maybe three times that for remote.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l |}
+    \hline
+    Host & Hardware Estimate & Software Estimate & Total Estimate & Average Measurement \\      \hline
+    Local Setup & 4 us & 46 us & 50 us & 71,284 cycles (35.6 us) \\ 
+    Local Teardown & 4 us & 36 us & 40 us & 26,153 cycles (13.1 us) \\ 
+    Remote Setup & 36 us & 174 us & 210 us & 436,866 cycles (218 us) \\
+    Remote Teardown & 36 us & 144 us & 180 us & 19,677 cycles (9.8 us) \\
+    \hline
+    \end{tabular}
+\end{center}
+
+\subsubsection{Measurement}
+
+My estimates for TCP setup were actually very close to what the average was.  Unfortunately, the estimates for teardown were too conservative.  Part of making a good estimate is having previous information.  And having previous information about TCP round trip time really helped to estimate TCP initialization.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l | l | l |}
+    \hline
+    Measurement & \# of Samples & First Iteration & Min & Max & Mean & Std Dev \\
+    \hline
+    Local Setup & 100 iterations & 81,600 c & 65,837 c. & 80,103 c. & 71,284 c. & 5301 c. \\ 
+    Local Teardown & 100 iterations & 22,622 c. & 19,559 c. & 61,590 c. & 26,153 c. & 11,903 c. \\
+    Remote Setup & 100 iterations & 1,052,760 c. & 232,219 c. & 535,375 c. & 436,866 c. & 222,479 c. \\ 
+    Remote Teardown & 100 iterations & 12,412 c. & 10,563 c. & 56,149 c. & 19,677 c. & 13,208 c. \\
+    \hline
+    \end{tabular}
+\end{center}
+
+The average time for localhost connection initialization is 71,284 cycles or 36 ms.  This estimate is within 14 ms of my average which is fairly good.  The average time for local teardown is 26,153 cycles or 13 ms.  This teardown speed is more than half of what I expected. 
+
+The average time for remote connection initialization is 436,866 cycles or 218 us.  This average was extremely close to my estimate of 210 us.  However, the remote teardown was extremely faster and not what I had expected.  The remote teardown took a measely 19,677 cycles on average which is just under 10 us.  The timing for teardown was actually less than what was measured locally.
+
+Being close to the estimates for TCP intialization and far from the estimates for teardown make me think that I understood more of the underlying mechanics of initialization and not of teardown.  For teardown, the very quick speed might indicate that the TCP packets are sent asynchronously instead of synchronously.  For instance, \textit{connect()} must be synchronous so the caller can be sure that it can use the socket.  However, \textit{close()} doesn't necessarily have to be synchronous and that is why the timing could be a lot shorter than anticipated.
+
+\section{File System}
+
+\subsection{File Cache}
+
+\subsubsection{Methodology}
+
+Reading from the file cache buffer means using a lot of the standard file functions included in \textbf{stdio}.  The 300 GB file from the page fault section is used as the file to read into.  The goal of this section is take different sizes of it and measure the read time.
+
+The first call that \textit{MeasureFileCache()} does is open the file with \textit{fopen()}.  After opening the file, the code reads in the file depending on the filesize.  The whole file is read in at once with \textit{fread()}.  File sizes from 1 MB to 1 GB are tested in powers of 2.  The timing functions are wrapped around the \textit{fread()} call.
+
+What this function should do is to test the limits of the file cache.  If the file cache is too small, there should be a jump in the read latency.
+
+The measurement is repeated a 100 times and various metrics are calculated.
+
+\subsubsection{Estimation}
+
+For the first read of the data, there definitely could be some latency involved because it would mean that Linux would be reading the file from disk into the file cache.  However, after the first read, the data would be cached in memory.  Every subsequent read should be a good bit faster.
+
+The hardware cost would mainly be memory and how Linux handles the file cache itself.  For the first read, I would imagine that the 7200 RPM RAID 1 drive read would be fairly fast.  It would probably be on the magnitude of 200 us.  As the file size would grow by 2, I would imagine that the read time would grow by 2 as well.  Since this machine has a large amount of memory ~ 128 GB, I don't think that a 1 GB file will grow beyond the file cache.  There will probably be some small jump, but nothing like a step.
+
+On the software end, these functions will merely be reads from main memory.  As we observed in the main memory section, a read of this magnitude will probably be about 100 us.  Thus, the total estimate is probably around 300 us for a 1 MB file, with the cost increasing by 2 as the file size increases.
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l |}
+    \hline
+    Hardware Estimate & Software Estimate & Total Estimate \\ 
+    200 us & 100 us & 300 us \\ 
+    \hline
+    \end{tabular}
+\end{center}
 
 
+\subsubsection{Measurement}
+
+As one can observe in the graph, the large amount of memory on the system has paid well.  As the file size grew by two, so did the file read time.  One can compare the estimate (red) to the measured (blue).  The first value set off the trend.  The measured speed of reading a 1 MB file from the file cache was a little over 200 ms.  Since the system has 128 GB of memory, it would probably take an extremely large file for the buffer cache to be overrun.
+
+
+\begin{center}
+\begin{tikzpicture}[domain=0:3]
+\begin{axis}[xlabel={log\textsubscript{2} file size}, ylabel={time in ms}]
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+
+    20      0.211     0
+    21      0.582     0
+    22      1.11     0
+    23      2.3     0
+    24      4.87     0
+    25      13.3     0
+    26      26.7     0
+    27      58.2     0
+    28      121.4    0
+    29      239.5    0
+    30      482.4    0
+};
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+    20      0.3    1
+    21      0.6    1
+    22      1.2     1
+    23      2.4     1
+    24      4.8     1
+    25      9.6
+    26      19.2
+    27      38.4
+    28      76.8
+    29      153.6
+    30      307.2
+};
+
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+\subsection{File Read}
+
+\subsubsection{Methodology}
+
+For file read, the goal is to measure access to disk.  Using the file stream functions like \textit{fopen()} and \textit{fread()} will not do because these use the Linux file buffer cache.  Thus, the raw functions, such as \textit{open()} and \textit{read()} must be used so the buffer cache will not be used.
+
+The implementation of the \textit{MeasureFileRead()} is fairly straightforward.  A large 300 GB file was created when the page fault measurement was performed.  The \textit{MeasureFileRead()} function merely reads this file in various file sizes.  It starts with a file size of 1 MB and scales by a factor of 2 until a filesize of 1 GB is reached.
+
+So it starts by creating a block of memory for the amount of data it will read in.  For instance, the first test allocates a 1 MB block of memory.  After creating this block of memory, the function opens the file using the raw interface \textit{open()}.  After retrieving the file descriptor, the function starts the timer.  Next it reads in the block using \textit{read()}.  After the function call, it stops the timer and returns the result.  This measurement is performed 100 times and is averaged.
+
+For random access, the measurement is really similar to contiguous access except for the fact that it is randomly indexed into the file for 1 KB at a time.  Randomly indexing into the file will cause the seek and read time to be longer.
+
+\subsubsection{Estimation}
+
+The speed of this function will be based mostly on hardware which is the hard-drive speed with its seek time.  The hard drive is 7200 RPM, connected through eSATA which has a theoretical top speed of 6 GB/s.  It is also configured in a RAID 1 configuration which should give high throughput. Thus, if 80\% of the eSATA data throughput could be achieved, the rate would be 4.8 GB/s.  So to read a 1 MB file, the hardware cost should be about 218 us.  A 2 MB file's hardware cost should take twice this long ~ 436 us and so on.
+
+The software cost is small compared to the hardware cost.  It will be responsible for transferring the data from disk to program memory.  An extra 100 us will be added on top of each hardware cost.  Thus, a 1 MB file would take 318 us.  A 2 MB would becaome 536 us and so on.  So a 1 GB file should take around 325 ms, reading it contiguously.
+
+However, for random reads, there will be much more seek time.  For each file, the read speed will most likely at least double because of a random seek for each 1 KB block.  Sometimes the disk head will be close by, but other times it might jump around.  This will especially be true for large files.
+
+The following graph shows the speed estimate for contiguous reads and random reads for files from 1 MB to 1 GB, scaled by a factor of 2.
+
+\subsubsection{Measurement}
+
+The sequential reads were somewhat on par with my estimates.  The sequential reads can be seen in blue.  The estimate for the sequential reads can be found in orange.  The first read is what determines the rest of the graph.  In this case, the 1 MB file took about 400 us to read while the estimate was at 318 us.  So the entire estimate lived underneath the actual measurements.  One can observe that this graph models what happened for the file buffer cache.  The two grew as a power of 2.
+
+The random read results surprised me.  The random reads took longer than expected.  The interesting thing to note is that the factor of 2 stayed consistent as the file size changed.  I imagined that as the files grew larger, the random reads would cause the disk head to seek more which would result in much longer read times because of the seek.  However, that didn't seem to be the case.  The mere fact though that it is a random read is evident in the starting point of the graph, since it starts at 2 ms.  In constract to 409 us, it is almost an order of magnitude larger than sequential.
+
+It should be mentioned, however, that the read isn't necessarily sequential.  Depending on how full the disk was when the file was created, the file blocks could be spread around the disk.  If any defragmenting has happened, that would have ensured greater locality.  My guess is that the file has fairly good locality because the reads were moderately fast and grew at a known, steady rate. 
+
+
+\begin{center}
+\begin{tikzpicture}[domain=0:3]
+\begin{axis}[xlabel={log\textsubscript{2} file size}, ylabel={time in ms}]
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+
+    20      0.409     0
+    21      0.833     0
+    22      1.634     0
+    23      3.45       0
+    24      7.38      0
+    25      15.6     0
+    26      30.6      0
+    27      61.1      0
+    28      121.5     0
+    29      240.8     0
+    30      484.1     0
+};
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+    20      2.08    1
+    21      4.18    1
+    22      8.48     1
+    23      16.9     1
+    24      40.0     1
+    25      68.0
+    26      136.2
+    27      272.9
+    28      546.6
+    29      1100.9
+    30      2204.9
+};
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+    20      0.318    2
+    21      0.636    2
+    22      1.272     2
+    23      2.54     2
+    24      5.09     2
+    25      10.2
+    26      20.4
+    27      40.7
+    28      81.4
+    29      162.8
+    30      325.6
+};
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+    20      0.63    3
+    21      1.26    3
+    22      2.52     3
+    23      4.04     3
+    24      8.08     3
+    25      16.16
+    26      32.32
+    27      64.64
+    28      128.128
+    29      256
+    30      512
+};
+
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+
+
+\subsection{Remote File Read}
+
+\subsubsection{Methodology}
+
+The implmentation for reading remote files is exactly the same as local files, except for the fact that the file being read is on the network.  The network file system is NFS and served by a high throughput Isilon storage device.  The implmentation is exactly the same as a local file so please refer to the previous section to understand the methodology.
+
+\subsubsection{Estimation}
+
+The Isilon device that is serving the file has a theoretical throughput to max out the Gigabit network connection.  So, I will base my estimation on a high percentage of the gigabit network connection.
+
+Because of the maximum MTU size of 1500 bytes, the 1 MB file will be broken up into hundreds and thousands of TCP packets.  The payload of the packet will be 1400 bytes.  So there will be overhead for each packet because of network headers.  A 1 MB file would then be broken up into about 750 packets.  Using the network speed in the previous network section, the cost to send about 1000 packets was about 24 ms.  So, a 1 MB file would probably be about three quarters of this which is 18 ms.  A 1 GB file would be about 1.8 s.
+
+Randomly seeking into a file over the network will add a cost similar to the local file.
+
+FILLIN FILLIN
+
+\subsubsection{Measurement}
+
+Out of all the measurements in this paper, this measurement surprised me the most.  I wouldn't have thought that a remote network file read would be faster than reading from disk.  However, the measurements proved me wrong.  And I know that it is not an implementation mistake because both the local read and the network read utilize the same code.
+
+To start with, I thought that the network read would start at 18 ms.  However, the network read for the 1 MB file took only 119 us!  And just like the other file read measurements, the file read time had a nice linear growth as the file size increased.  One of the main reasons for this increase in speed is the fact that the network file system is being served by an Isilon file storage device.  These devices cost on the order of hundreds of thousands of dollars.  Their main selling goal is that they can serve data fast to consumers.  And since the Isilon drive is hooked up with gigabit ethernet, the speed is actually very tremendous.  This network storage device's goal is to serve large genome files and high resolution images for the employees at Illumina.
+
+Again, the random read was higher than the continuous one.  The order of magnitude for a random read was a little over 10 times the continuous read.  Isilon storage devices are probably tuned for streaming, continuous reads.
+
+Below, the red is the estimate with the yellow being the random access read and the blue being the continuous read.
+
+
+\begin{center}
+\begin{tikzpicture}[domain=0:3]
+\begin{axis}[xlabel={log\textsubscript{2} file size}, ylabel={time in ms}]
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+
+    20      0.119     0
+    21      0.232     0
+    22      0.465     0
+    23      0.935       0
+    24      1.86      0
+    25      3.71     0
+    26      7.43      0
+    27      14.8      0
+    28      29.7     0
+    29      59.4     0
+    30      119.0     0
+};
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+    20      1.79    1
+    21      3.59    1
+    22      7.22     1
+    23      14.3     1
+    24      28.5     1
+    25      57.1
+    26      114.2
+    27      228.1
+    28      456.1
+    29      912.4
+    30      1824.4
+};
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+    20      18    2
+    21      36    2
+    22      72     2
+    23      144     2
+    24      288     2
+    25      576
+    26      1152
+    27      2304
+    28      4608
+    29      9216
+    30      18432
+};
+
+
+
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+
+\subsection{Contention}
+
+\subsubsection{Methodology}
+
+This section describes the methodology for measuring a different number of threads to read blocks from different files on the local system.  The first measurement is just one thread reading one kilobyte block from one file.  It is then scaled to two threads, three threads, and all the way up to twenty threads.
+
+Threads are created with \textit{pthread\_create()}.  In the thread function, the function opens a file with the standard \textit{open()} function like the previous sections.  It reads one kilobyte of data and returns.  However, before any of the threads read a block from a file, all the threads need to be synched up.  A barrier is used.  
+
+Thus, \textit{pthread\_barrier\_init()} is called initially to create a pthread barrier.  And \textit{pthread\_barrier\_wait()} is called within the thread function.  This function will sync up all the threads.  Thus, each file is opened before the barrier.  The barrier is then enforced.  After the threads are synced up and clear the barrier, the timer is started.  After the timer is started, each one kilobyte file is read and the file is closed and the thread returns.  In the parent function, it performs a \textit{pthread\_join()} on each thread to guarantee that each thread returns.  After the join, a time is recorded.  To get the total time, it takes the minimum time from all the threads and subtracts it by the latest time.
+
+\subsubsection{Estimation}
+
+When using one, two, three, or four threads, I don't imagine contention to be much of an issue.  However, as the threads increase, I imagine that there will be more of a hardware cost for the hard drive since there will be more seeking involved when reading the different files.
+
+To read a single block from a file for one thread will only be about 20 us.  With each additional thread, I imagine that the hardware cost will triple.  As far as the software cost goes, it will be mostly consistent with the number of threads.  The software will mainly be responsbile for copying data from disk to memory.  Starting at one thread which is about 20 us, the graph below shows how contention will grow as more threads are added.
+
+\subsubsection{Measurement}
+
+With one thread, the read took 128 us.  This was a good bit more than my estimate of 50 us.  Some of that extra cost included some of the cost of joining the thread.  As each thread was added, a constant offset seemed to apply to the time.  For the most part, this value did not vary and is on the order of 100-300 us.
+
+As the number of threads increased, I imagined that the graph would grow more exponential as the threads tried to read from its portion of the disk.  There would be a heavy seek time as the head would bounce around from thread to thread.  Some of the graph might show that the different files that the threads are allocating have spatial locality with one another.
+
+\begin{center}
+\begin{tikzpicture}[domain=0:3]
+\begin{axis}[xlabel={\# of threads}, ylabel={time in ms}]
+
+\addplot[scatter, scatter src=\thisrow{class},
+      error bars/.cd, y dir=both, x dir=both, y explicit, x explicit, error bar style={color=mapped color}]
+      table[x=x,y=y] {
+    x       y      class
+
+    1      0.128     0
+    %2      0.242     0
+    %3      0.382     0
+    %4      0.505       0
+    5      0.637      0
+    %6      0.978     0
+    %7      1.25      0
+    %8      1.62      0
+    %9      2.24     0
+    10      2.66     0
+    %11      3.04     0
+    %12      3.54     0
+    %13      3.83     0
+    %14      4.18     0
+    15      4.50     0
+    %16      4.98     0
+    %17      5.35     0
+    %18      5.80     0
+    %19      6.00     0
+    20      6.19     0
+    25      8.47     0
+    30      10.4
+    35      12.5
+    40      14.5
+};
+
+
+
+
+
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+\newpage
+\section{Final Results}
+
+Here is a summary of all the estimations and measurements above:
+
+\begin{center}
+    \begin{tabular}{ | l | l | l | l | l |}
+    \hline
+    Operation & Base HW & Est. SW Overhead & Predicted Time & Measured Time \\ \hline
+    RDTSCP & 24 c & 5 cycles & 30 c & 35 c (18 ns) \\ 
+    Loop & 33 cycles & 5 cycles & 38 c & 12 c (6 ns) \\ 
+    Function 0 & 37 c & 5 cycles & 43 c & 37 c (24 ns) \\
+    Function 1 & 39 c & 5 cycles & 44 c & 38 c (24 ns) \\ 
+    Function 2 & 41 c & 5 cycles & 46 c & 40 c (24 ns) \\ 
+    Function 3 & 43 c & 5 cycles & 48 c & 40 c (24 ns) \\ 
+    Function 4 & 45 c & 5 cycles & 50 c & 41 c (24 ns) \\
+    Function 5 & 47 c & 5 cycles & 52 c & 40 c (24 ns) \\ 
+    Function 6 & 49 c & 5 cycles & 54 c & 42 c (24 ns) \\ 
+    System Call & 37 c & 100 c & 137 c & 147 c (74 ns) \\ 
+    Process Creation & 50,000 c & 20,000 c & 70,000 c & 277,758 c (139 us) \\ 
+    Thread Creation & 10,000 c & 10,000 c & 20,000 c & 35,443 c (18 us) \\
+    Process Context Switch & 140,000 c & 10,000 c & 150,000 c & 82,674 c (41 us) \\ 
+    Thread Context Switch & 35,000 c & 10,000 c & 45,000 cycles & 3114 c (1.6 us) \\
+    Memory Latency & 160 cycles & 10 c & 170 cyles & 206.2 cycles (103 ns) \\ 
+    Back-to-back Load & 180 c & 10 cycles & 190 cycles & 215.0 c (108 ns) \\
+    L1 Cache & 3 cycles & 0 c & 3 cyles & 10 c (5 ns) \\ 
+    L2 Cache & 15 cycles & 0 c & 15 c & 33.8 c (16.5 ns) \\
+    Memory Bandwidth &  10.65 GB/s  & -1.07 GB/s & 9.59 GBs & 7.664 GB/s \\
+    Page Fault & 6 ms & 100 ns & ~ 6 ms & 19.8 mil c (9.9 ms) \\ 
+    Local Round Trip & 10 us & 50 us & 60 us & 49,526 cycles (24.7 us) \\ 
+    Remote Round Trip & 30 us & 150 us & 180 us & 203,726 cycles (102 us) \\
+    Local Peak Bandwidth & 50 Mb/s & 0 Mb/s & 50 Mb/s & 13.2 Mb/s \\
+    Remote Peak Bandwidth & 30 Mb/s & 0 Mb/s & 30 Mb/s & 9.8 Mb/s \\
+    Local Setup & 4 us & 46 us & 50 us & 71,284 cycles (35.6 us) \\ 
+    Local Teardown & 4 us & 36 us & 40 us & 26,153 cycles (13.1 us) \\ 
+    Remote Setup & 36 us & 174 us & 210 us & 436,866 cycles (218 us) \\
+    Remote Teardown & 36 us & 144 us & 180 us & 19,677 cycles (9.8 us) \\
+    File Cache (1 MB) & 200 us & 100 us & 300 us & 211 us \\ 
+    Loc. File Seq. Read (1MB) & 218 us & 100 us & 318 us & 409 us \\ 
+    Loc. File Ran. Read (1MB) & 436 us & 100 us & 536 us & 2.08 ms \\ 
+    Rem. File Seq. Read (1MB) & 18 ms & 100 us & 18.1 ms & 119 us \\ 
+    Rem. File Ran. Read (1MB) & 36 ms & 100 us & 36.1 ms & 1.79 ms \\ 
+    Contention (10 threads) & 1 ms & 200 us & 1.2 ms & 2.66 ms \\
+    \hline
+    \end{tabular}
+\end{center}
 
 
 
